@@ -1,6 +1,20 @@
-.PHONY: all inventory preprocess baseline cells manipulation divergence variance clean
+.PHONY: all download download-check verify-raw extract inventory preprocess baseline cells manipulation divergence variance clean
 
 all: baseline cells manipulation divergence variance
+
+# Raw data acquisition. Deliberately NOT a prerequisite of `all`: data/raw is
+# read-only source, not a regenerable artifact (dataset.md 1).
+download-check:               # preflight only, downloads nothing
+	python -m src.io.download --check
+
+download:                     # ~29.5 GB from Zenodo, resumable
+	python -m src.io.download
+
+verify-raw:                   # md5 every local file against the Zenodo API
+	python -m src.io.download --verify
+
+extract:                      # unzip sub-*.zip in place
+	python -m src.io.download --extract
 
 inventory:
 	python -m src.io.inventory

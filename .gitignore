@@ -3,3 +3,7 @@ data/raw/
 data/derived/
 __pycache__/
 *.pyc
+
+# transient download transcript; the G0.2 gate log is the durable record
+outputs/logs/G0.2_download_stdout.log
+.pytest_cache/
