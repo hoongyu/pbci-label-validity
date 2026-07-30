@@ -193,7 +193,7 @@ def extract(config: dict) -> int:
     before = shutil.disk_usage(target).free
     for archive in archives:
         subject = archive.stem
-        if (target / subject).is_dir():
+        if (target / subject / "ses-S1").is_dir():
             print(f"  skip    {subject} (already extracted)")
             continue
         free = shutil.disk_usage(target).free
@@ -206,11 +206,71 @@ def extract(config: dict) -> int:
                 )
                 return 1
             print(f"  extract {subject} -> {gb(need)}", flush=True)
-            zf.extractall(target)
+            _extract_normalised(zf, target / subject)
 
     used = before - shutil.disk_usage(target).free
     print(f"\nextracted, consuming {gb(used)}")
     print("Archives kept. Delete sub-*.zip once the inventory (G0.2) passes.")
+    return 0
+
+
+def _member_relpath(name: str) -> str | None:
+    """Path of a zip member relative to its subject directory.
+
+    The archives are not packaged consistently: sub-01 and sub-02 contain
+    `sub-XX/ses-SY/...`, while sub-03 through sub-29 contain
+    `sub-XX/sub-XX/ses-SY/...` -- one redundant level. Extracting verbatim
+    yields two different on-disk layouts, and a loader globbing
+    `sub-*/ses-S*/eeg/*.set` then silently finds 2 subjects instead of 29.
+
+    Anchoring on the `ses-S*` component instead of on nesting depth normalises
+    both layouts, and any further variation. Returns None for members that sit
+    above the session level (the redundant directory entries themselves).
+    """
+    parts = [p for p in name.replace("\\", "/").split("/") if p not in ("", ".")]
+    for i, part in enumerate(parts):
+        if part.startswith("ses-S"):
+            return "/".join(parts[i:])
+    return None
+
+
+def _extract_normalised(zf: zipfile.ZipFile, subject_dir: Path) -> None:
+    """Extract `zf` under `subject_dir`, stripping redundant nesting."""
+    for member in zf.infolist():
+        rel = _member_relpath(member.filename)
+        if rel is None:
+            continue
+        dest = subject_dir / rel
+        if member.is_dir():
+            dest.mkdir(parents=True, exist_ok=True)
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with zf.open(member) as src, open(dest, "wb") as out:
+            shutil.copyfileobj(src, out)
+
+
+def normalise(config: dict) -> int:
+    """Repair subject directories that were extracted with redundant nesting.
+
+    Idempotent. Moves `sub-XX/sub-XX/ses-SY` up to `sub-XX/ses-SY`.
+    """
+    target = raw_dir(config)
+    fixed = 0
+    for subject_dir in sorted(target.glob("sub-*")):
+        if not subject_dir.is_dir():
+            continue
+        if (subject_dir / "ses-S1").is_dir():
+            continue
+        nested = subject_dir / subject_dir.name
+        if not (nested / "ses-S1").is_dir():
+            print(f"  ?????   {subject_dir.name}: no ses-S1 at either depth")
+            continue
+        for child in list(nested.iterdir()):
+            shutil.move(str(child), str(subject_dir / child.name))
+        nested.rmdir()
+        print(f"  fixed   {subject_dir.name}")
+        fixed += 1
+    print(f"\nnormalised {fixed} subject directories")
     return 0
 
 
@@ -223,6 +283,9 @@ def main(argv: list[str] | None = None) -> int:
                       help="re-check md5 of local files against Zenodo")
     mode.add_argument("--extract", action="store_true",
                       help="unzip subject archives in place")
+    mode.add_argument("--normalise", "--normalize", action="store_true",
+                      dest="normalise",
+                      help="repair redundantly nested sub-XX/sub-XX layouts")
     parser.add_argument("--metadata-only", action="store_true",
                         help="fetch only the 5 small top-level files")
     parser.add_argument("--retry", type=int, default=3,
@@ -238,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
             return verify(config)
         if args.extract:
             return extract(config)
+        if args.normalise:
+            return normalise(config)
         return download(config, metadata_only=args.metadata_only, retries=args.retry)
     except PreflightError as exc:
         print(f"\nPREFLIGHT FAILED: {exc}", file=sys.stderr)

@@ -125,6 +125,37 @@ QUESTIONNAIRE_LABELS: dict[str, Condition] = {
     "Flanker": Condition.FLANKER,
 }
 
+#: EEG filename stems under ses-SY/eeg/ (paired .set/.fdt). A third naming
+#: scheme: no separators, inconsistent case ("zeroBACK", "MATBeasy").
+EEG_STEMS: dict[Condition, str] = {
+    Condition.ZERO_BACK: "zeroBACK",
+    Condition.ONE_BACK: "oneBACK",
+    Condition.TWO_BACK: "twoBACK",
+    Condition.MATB_EASY: "MATBeasy",
+    Condition.MATB_MEDIUM: "MATBmed",
+    Condition.MATB_DIFFICULT: "MATBdiff",
+    Condition.PVT: "PVT",
+    Condition.FLANKER: "Flanker",
+}
+
+#: Behavioural filename stems under ses-SY/behavioral/ (.mat). A fourth
+#: scheme, disagreeing with EEG_STEMS on both separators and case.
+BEHAVIOURAL_STEMS: dict[Condition, str] = {
+    Condition.ZERO_BACK: "0-Back",
+    Condition.ONE_BACK: "1-Back",
+    Condition.TWO_BACK: "2-Back",
+    Condition.MATB_EASY: "MATB_Easy",
+    Condition.MATB_MEDIUM: "MATB_Med",
+    Condition.MATB_DIFFICULT: "MATB_Diff",
+    Condition.PVT: "PVT",
+    Condition.FLANKER: "Flanker",
+}
+
+#: Resting-state recordings. Note "RS_End_Ec" -- lowercase 'c', unlike
+#: "RS_Beg_EC". Case-insensitive lookup is required on case-sensitive
+#: filesystems (G4.1 may rebuild on Linux).
+RESTING_STEMS: tuple[str, ...] = ("RS_Beg_EO", "RS_Beg_EC", "RS_End_EO", "RS_End_Ec")
+
 IN_SCOPE: tuple[Condition, ...] = (
     Condition.ZERO_BACK, Condition.ONE_BACK, Condition.TWO_BACK,
     Condition.MATB_EASY, Condition.MATB_MEDIUM, Condition.MATB_DIFFICULT,
