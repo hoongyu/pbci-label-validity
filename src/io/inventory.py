@@ -173,9 +173,7 @@ def channel_report(config: dict, raw: Path, subjects: list[int]) -> pd.DataFrame
                 info = mne.io.read_raw_eeglab(probe, preload=False).info
 
             names = info["ch_names"]
-            types = {ch: t for ch, t in
-                     zip(names, [mne.io.pick.channel_type(info, i)
-                                 for i in range(len(names))])}
+            types = dict(zip(names, info.get_channel_types()))
             ecg_typed = [ch for ch, t in types.items() if t == "ecg"]
             ecg_named = [ch for ch in names if "ECG" in ch.upper()]
             mis_typed = [ch for ch in ecg_named if types[ch] == "eeg"]
