@@ -54,3 +54,39 @@ G4.1 requires a rebuild from a clean clone without assuming the rebuilder uses
 
 **Note for regeneration.** `uv pip freeze > env/requirements.lock` in PowerShell
 reintroduces UTF-16. Regenerate with explicit UTF-8 encoding instead.
+
+---
+
+## 2026-07-30 — `config.yaml` ECG channel repinned from `TP9` to `ECG1`
+
+**What changed.** `eeg.ecg_channel` was `TP9`, per
+`GETTING-STARTED-claude-code.md` §2. It is now `ECG1`.
+
+**Why.** `TP9` appears in **0 of 87** subject-sessions in the COG-BCI revision
+currently published on Zenodo (DOI 10.5281/zenodo.6874128). The ECG channel is
+named `ECG1` in every session and is already typed `ecg` by MNE; it is never
+typed as EEG. `TP10` is present, so only `TP9` is absent.
+
+`dataset.md` §7.3 warns that a loader treating the ECG channel as EEG corrupts
+the average reference. That hazard is real, but the specific name the reference
+gives for it does not exist in this release. Left pinned to `TP9`, any
+exclusion step keyed on the name would remove nothing and report success —
+silent failure of exactly the kind that makes a G0.4 miss impossible to locate.
+
+**Option not taken.** Selecting on channel *type* rather than name would be
+immune to renaming, but it makes the exclusion depend on MNE's type inference
+being correct forever, which is itself a silent dependency. An explicit name is
+easier to verify while working the G0.4 playbook. Recorded here so the choice
+is visible if that reasoning later proves wrong.
+
+**Timing.** Decided **after** seeing the inventory result (the channel survey
+that established TP9's absence), but **before** any analysis was run. No
+decoding, preprocessing or statistical result existed at this point. The
+observation is a fact about file contents, not about an outcome.
+
+**Related.** This is the third sign that the reference documents describe an
+earlier COG-BCI revision: extraction is 35.89 GB against `dataset.md` §1's
+~50 GB estimate; 27 of 29 archives carry an undocumented extra directory level;
+and `gates.md` §G0.2's "assert TP9 is identified as ECG" cannot be satisfied as
+worded. Flagged for the mentor. See
+`outputs/logs/G0.2_2026-07-30_attempt1.md`.

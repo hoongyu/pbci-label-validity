@@ -15,7 +15,7 @@ eeg:
   epoch_length_s: 5.0
   epoch_overlap: 0.0
   reference: average
-  ecg_channel: TP9          # 不是 EEG，务必排除
+  ecg_channel: ECG1         # 不是 EEG，务必排除。本版本叫 ECG1，不是 TP9，见 deviations.md
   channels:                  # 复现基线用的 10 通道，顺序固定
     - F3
     - Fz
