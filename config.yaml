@@ -1,0 +1,51 @@
+seeds:
+  ica: 42
+  cv_split: 1337
+  bootstrap: 2718
+  permutation: 31415
+  subsample: 8128
+
+paths:
+  raw: data/raw
+  derived: data/derived
+  outputs: outputs
+
+eeg:
+  sfreq_target: 250
+  epoch_length_s: 5.0
+  epoch_overlap: 0.0
+  reference: average
+  ecg_channel: TP9          # 不是 EEG，务必排除
+  channels:                  # 复现基线用的 10 通道，顺序固定
+    - F3
+    - Fz
+    - F4
+    - FCz
+    - C3
+    - C4
+    - CPz
+    - P3
+    - Pz
+    - P4
+
+bands:
+  theta: [4.0, 8.0]
+  alpha: [8.0, 12.0]        # 注意是 12 不是 13，见 pitfalls.md #6
+
+cleaning:
+  bad_channel_sd: 2.0
+  iclabel_threshold: 0.90
+  iclabel_reject: [eye, muscle, heart]
+  epoch_rejection: false     # ML 管线关闭，见 pitfalls.md #1
+
+decode:
+  classifier: mdm
+  n_folds: 5
+  n_classes: 3
+  chance_ceiling: 0.417
+
+bootstrap:
+  n_draws: 2000
+
+permutation:
+  n_runs: 200
