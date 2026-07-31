@@ -90,3 +90,68 @@ earlier COG-BCI revision: extraction is 35.89 GB against `dataset.md` §1's
 and `gates.md` §G0.2's "assert TP9 is identified as ECG" cannot be satisfied as
 worded. Flagged for the mentor. See
 `outputs/logs/G0.2_2026-07-30_attempt1.md`.
+
+---
+
+## 2026-07-30 — bad-channel criterion: kurtosis at 5.0 SD, calibrated to the published rate
+
+**What changed.** `config.yaml` `cleaning.bad_channel_sd` 2.0 → **5.0**, and a
+new key `cleaning.bad_channel_statistic: kurtosis` makes the statistic explicit
+rather than a code default.
+
+**Why.** `bad_channel_sd: 2.0` (from `GETTING-STARTED-claude-code.md` §2) and
+the ~0.34 channels-interpolated-per-task KPI (`gates.md` §G0.3) cannot both
+hold. On 62 channels a |z| > 2 rule flags ≈ 5% ≈ 3 channels **by
+construction**, independent of data quality. Measured over 24 recordings
+(sub-01…04): log-variance 3.58/task, kurtosis 3.00/task — both ~10× the target.
+The published "2 SD" therefore denotes some other kind of criterion, plausibly
+neighbouring-channel correlation or an EEGLAB `clean_rawdata` default. It could
+not be identified from the available references.
+
+**Calibration.** `src/preprocess/calibrate_bad_channels.py`, 60 recordings
+(sub-01…10, ses-S1), output in
+`outputs/tables/G0.3_bad_channel_calibration.csv`:
+
+| Statistic | Threshold | Channels/task |
+|---|---|---|
+| log-variance | 4.00 SD | 0.333 |
+| **kurtosis** | **5.00 SD** | **0.333** |
+
+Both reach the target. Kurtosis was chosen.
+
+**Two independent reasons for kurtosis, neither of which is the target number.**
+
+1. *It does not punish channels for carrying blinks.* Log-variance flags
+   frontopolar channels (Fp1, Fp2, AF3/4/7/8, AFz) because ocular activity is
+   genuinely high-variance there. Interpolating them **before** ICA removes the
+   signal ICLabel needs to identify eye components. At G0.3 attempt 1 this was
+   visible: 4.33 channels/task interpolated and only 3 components rejected
+   against a published ~7 — over-interpolation and under-rejection with one
+   root cause.
+2. *It is less sensitive to the exact threshold.* Across ±0.5 SD around the
+   chosen value the rate moves by a factor of 1.8 for kurtosis (0.417 → 0.233)
+   versus 3.6 for log-variance (0.533 → 0.150). A calibrated parameter should
+   sit on the flattest available part of the curve, because the calibration
+   target is itself uncertain.
+
+This matters for how the deviation should be re-evaluated later: if the 0.34
+figure turns out to describe a different data revision (see the entries above),
+reason 1 and reason 2 still stand and the choice should **not** automatically
+be reverted. Had the only justification been "it matches the number", it should
+have been.
+
+**Circularity, stated plainly.** This *is* calibration against a published
+target, and it is the kind of move that can invalidate a reproduction. Two
+limits were imposed: calibration used subjects 1–10 only, not the full dataset,
+so the threshold is not fitted to everything it will be judged on; and it was
+fixed once, before any decoding was run, and is not to be adjusted after seeing
+a G0.4 result. **If G0.4 misses and this parameter is then re-tuned, that is a
+new deviation and must be logged as such.**
+
+**Timing.** Decided **after** seeing the interpolation-rate measurements, which
+are preprocessing diagnostics, and **before** any decoding, accuracy or
+statistical result existed.
+
+**Disclosure.** This belongs in the manuscript's methods, not only in this log:
+the published threshold could not be reproduced as stated and a calibrated
+substitute was used.
