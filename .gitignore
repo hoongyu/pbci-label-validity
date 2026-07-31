@@ -7,3 +7,4 @@ __pycache__/
 # transient download transcript; the G0.2 gate log is the durable record
 outputs/logs/G0.2_download_stdout.log
 .pytest_cache/
+outputs/logs/G0.3_smoke_stdout.log
