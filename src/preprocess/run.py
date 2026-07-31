@@ -64,6 +64,7 @@ def run_one(config: dict, subject: int, session: int, phase: str,
         "ica_components": results[0].n_components if results else None,
         "ica_components_rejected": results[0].n_components_rejected if results else None,
         "ica_rejected_labels": results[0].rejected_labels if results else [],
+        "ica_component_labels": results[0].component_labels if results else [],
         "covariance_file": str(out.relative_to(REPO_ROOT)),
         "conditions": summary,
     }

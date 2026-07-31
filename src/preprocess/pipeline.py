@@ -65,6 +65,8 @@ class PreprocessResult:
     n_components: int
     n_components_rejected: int
     rejected_labels: list[str] = field(default_factory=list)
+    #: Every component's ICLabel class and confidence, not only those rejected.
+    component_labels: list[dict] = field(default_factory=list)
     covariances: dict[str, np.ndarray] = field(default_factory=dict)
     sfreq: float = 0.0
     duration_s: float = 0.0
@@ -359,6 +361,24 @@ def preprocess_session(
     say(f"  rejected {len(exclude)} component(s): "
         f"{', '.join(excluded_labels) or 'none'}")
 
+    # Retain the full classification, not just what crossed the threshold.
+    # Whether components sit just below 0.90 or are confidently 'brain' are
+    # completely different diagnoses, and the G0.4 playbook needs to be able to
+    # tell them apart without refitting ICA (~13 min per subject-session).
+    component_labels = [
+        {"index": i, "label": n, "confidence": round(float(p), 4)}
+        for i, (n, p) in enumerate(zip(names, probs))
+    ]
+    near_miss = [
+        c for c in component_labels
+        if ICLABEL_CLASSES.get(c["label"]) in reject_labels
+        and c["confidence"] <= threshold
+    ]
+    if near_miss:
+        say(f"  {len(near_miss)} artefact component(s) below the "
+            f"{threshold:.2f} threshold: "
+            + ", ".join(f"{c['label']}:{c['confidence']:.2f}" for c in near_miss[:8]))
+
     # --- apply the session decomposition to each recording, then covariances
     results = []
     for condition, epochs in per_condition:
@@ -378,6 +398,7 @@ def preprocess_session(
             n_components=n_components,
             n_components_rejected=len(exclude),
             rejected_labels=excluded_labels,
+            component_labels=component_labels,
             covariances=covs,
             sfreq=float(epochs.info["sfreq"]),
             duration_s=len(epochs) * float(config["eeg"]["epoch_length_s"]),
