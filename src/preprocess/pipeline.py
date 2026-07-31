@@ -212,7 +212,11 @@ def prepare_epochs(set_path: Path, config: dict, *, verbose: bool = True):
     # reference, per the order in `gates.md` §G0.3, and before Fpz is restored
     # so that a reconstructed channel can never be flagged as a bad measured
     # one.
-    bads = _detect_bad_channels(epochs, float(cleaning["bad_channel_sd"]))
+    bads = _detect_bad_channels(
+        epochs,
+        float(cleaning["bad_channel_sd"]),
+        statistic=cleaning.get("bad_channel_statistic", "kurtosis"),
+    )
     epochs.info["bads"] = bads
     if bads:
         epochs.interpolate_bads(reset_bads=True)

@@ -33,7 +33,11 @@ bands:
   alpha: [8.0, 12.0]        # 注意是 12 不是 13，见 pitfalls.md #6
 
 cleaning:
-  bad_channel_sd: 2.0
+  # 见 deviations.md 2026-07-30「坏道阈值」条目与 outputs/logs/G0.3_*。
+  # 「2 SD」与发表的 ~0.34 通道/task 在任何 z 阈值口径下都不可能同时成立：
+  # 62 通道上 |z|>2 天然就是 ~5% ≈ 3 个。阈值改为对着发表率标定。
+  bad_channel_statistic: kurtosis   # log_variance | kurtosis
+  bad_channel_sd: 5.0
   iclabel_threshold: 0.90
   iclabel_reject: [eye, muscle, heart]
   epoch_rejection: false     # ML 管线关闭，见 pitfalls.md #1
