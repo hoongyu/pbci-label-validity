@@ -78,6 +78,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--session", type=int, default=None)
     parser.add_argument("--phase", default="P0")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--force", action="store_true",
+                        help="recompute subject-sessions that already exist")
     args = parser.parse_args(argv)
 
     config = load_config()
@@ -86,6 +88,12 @@ def main(argv: list[str] | None = None) -> int:
 
     for subject in subjects:
         for session in sessions:
+            out = (derived_dir(config, args.phase)
+                   / f"sub-{subject:02d}_ses-S{session}_cov.npz")
+            if out.exists() and not args.force:
+                print(f"=== sub-{subject:02d} ses-S{session} === already done, "
+                      "skipping", flush=True)
+                continue
             print(f"=== sub-{subject:02d} ses-S{session} ===", flush=True)
             meta = run_one(config, subject, session, args.phase,
                            verbose=not args.quiet)
