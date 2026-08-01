@@ -72,48 +72,67 @@ def score_cell(covs: np.ndarray, labels: np.ndarray, seed: int) -> dict:
     }
 
 
-def run(config: dict, phase: str = "P0", verbose: bool = True) -> pd.DataFrame:
+def run(config: dict, phase: str = "P0", verbose: bool = True,
+        pool_sessions: bool = False) -> pd.DataFrame:
+    """Score every cell.
+
+    `pool_sessions` selects the competing reading of the published design.
+    Per-session scoring is what the reported F(2,56) session effect implies;
+    pooling all three sessions per subject is what "≥60 trials per class per
+    **subject**" (`gates.md` §G0.4 step 7) implies, and gives MDM three times
+    the training data. Both are run and compared rather than argued about.
+    """
     seed = int(config["seeds"]["cv_split"])
     bands = list(config["bands"].keys())
     by_task: dict[str, list[Condition]] = {}
     for condition in IN_SCOPE:
         by_task.setdefault(condition.task.value, []).append(condition)
 
-    rows = []
+    # subject -> session -> loaded store
+    stores: dict[int, dict[int, np.lib.npyio.NpzFile]] = {}
     for path in derived_files(config, phase):
         match = DERIVED_RE.search(path.name)
         if not match:
             continue
         subject, session = int(match.group(1)), int(match.group(2))
-        store = np.load(path)
+        stores.setdefault(subject, {})[session] = np.load(path)
 
-        for task, conditions in by_task.items():
-            for band in bands:
-                covs, labels = [], []
-                missing = False
-                for condition in conditions:
-                    key = f"{condition.value}__{band}"
-                    if key not in store:
-                        missing = True
-                        break
-                    block = store[key]
-                    covs.append(block)
-                    labels.append(np.full(len(block), condition.difficulty))
-                if missing:
-                    print(f"  skip sub-{subject:02d}/S{session} {task}/{band}"
-                          " -- missing condition")
-                    continue
+    rows = []
+    for subject in sorted(stores):
+        groups = ([(0, stores[subject])] if pool_sessions
+                  else [(s, {s: st}) for s, st in sorted(stores[subject].items())])
+        for session, group in groups:
+            for task, conditions in by_task.items():
+                for band in bands:
+                    covs, labels = [], []
+                    for store in group.values():
+                        for condition in conditions:
+                            key = f"{condition.value}__{band}"
+                            if key not in store:
+                                continue
+                            block = store[key]
+                            covs.append(block)
+                            labels.append(
+                                np.full(len(block), condition.difficulty))
+                    if not covs:
+                        continue
 
-                X = np.concatenate(covs, axis=0)
-                y = np.concatenate(labels).astype(int)
-                result = score_cell(X, y, seed)
-                result.update(subject=subject, session=session, task=task,
-                              band=band)
-                rows.append(result)
-                if verbose:
-                    print(f"  sub-{subject:02d}/S{session} {task:<5} {band:<5} "
-                          f"acc={result['accuracy']:5.2f}%  "
-                          f"n={result['n_epochs']}", flush=True)
+                    X = np.concatenate(covs, axis=0)
+                    y = np.concatenate(labels).astype(int)
+                    if len(np.unique(y)) < 3:
+                        print(f"  skip sub-{subject:02d} {task}/{band} "
+                              "-- fewer than 3 classes present")
+                        continue
+
+                    result = score_cell(X, y, seed)
+                    result.update(subject=subject, session=session, task=task,
+                                  band=band, n_sessions=len(group))
+                    rows.append(result)
+                    if verbose:
+                        tag = "pooled" if pool_sessions else f"S{session}"
+                        print(f"  sub-{subject:02d}/{tag:<6} {task:<5} "
+                              f"{band:<5} acc={result['accuracy']:5.2f}%  "
+                              f"n={result['n_epochs']}", flush=True)
 
     return pd.DataFrame(rows)
 
@@ -155,18 +174,27 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--phase", default="P0")
     parser.add_argument("--quiet", action="store_true")
+    parser.add_argument("--pool-sessions", action="store_true",
+                        help="score once per subject over all sessions "
+                             "instead of once per session")
+    parser.add_argument("--out", default=None,
+                        help="output CSV name under outputs/tables/")
     args = parser.parse_args(argv)
 
     config = load_config()
-    print("=== G0.4 baseline reproduction ===")
-    table = run(config, args.phase, verbose=not args.quiet)
+    print("=== G0.4 baseline reproduction"
+          f"{' (sessions pooled)' if args.pool_sessions else ''} ===")
+    table = run(config, args.phase, verbose=not args.quiet,
+                pool_sessions=args.pool_sessions)
     if table.empty:
         print("no derived covariance files found -- run src.preprocess.run first")
         return 1
 
     out_dir = REPO_ROOT / "outputs" / "tables"
     out_dir.mkdir(parents=True, exist_ok=True)
-    table.to_csv(out_dir / "G0.4_baseline.csv", index=False)
+    name = args.out or ("G0.4_baseline_pooled.csv" if args.pool_sessions
+                        else "G0.4_baseline.csv")
+    table.to_csv(out_dir / name, index=False)
 
     summary = summarise(table)
     print("\n" + json.dumps(summary, indent=2))

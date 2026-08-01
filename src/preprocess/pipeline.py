@@ -158,7 +158,70 @@ def _detect_bad_channels(epochs, sd: float, statistic: str = "kurtosis") -> list
     return [n for n, zi in zip(names, z) if abs(zi) > sd]
 
 
-def prepare_epochs(set_path: Path, config: dict, *, verbose: bool = True):
+def task_windows(raw, condition) -> list[tuple[float, float]]:
+    """Time windows during which the participant is actually on task.
+
+    The N-Back recordings are not wall-to-wall task. Each holds exactly 144
+    trials (3 blocks x 48) of 2 s = 288 s, but the recording runs 311-411 s
+    depending on session -- **70-74% task coverage in session 1 against 87-93%
+    in sessions 2-3**. Epoching the whole recording therefore labels a
+    session-dependent amount of rest as though it were a workload condition.
+
+    **This is OFF by default and is not needed to reproduce the baseline.** It
+    is retained as a diagnostic, and the reasoning is worth keeping because it
+    corrected a wrong conclusion.
+
+    The apparent "rest contamination" is mostly not rest. Trials are
+    contiguous -- each recording has only ~2 inter-trial gaps above 5 s, and
+    task windows cover 88-96% of the recording either way. What actually
+    differs between sessions is **trial pacing**: the median inter-trial
+    interval is 2.516 s in session 1 against 2.008 s in session 3, while
+    `dataset.md` §3 documents 500 ms + 1500 ms = 2.0 s. Session 1 runs ~26%
+    slower, so its 144 trials fill ~400 s instead of ~300 s.
+
+    Lower time pressure plausibly means less separable workload, and
+    per-session N-Back accuracy tracks pacing closely (Spearman r = 0.946,
+    p = 0.0001 against the trial-time fraction, sub-01..03, 9 sessions).
+
+    That is a property of the recordings, not of this pipeline, and the
+    published pipeline faced it too: averaging over all three sessions gives
+    N-Back 64.40% against a published 64.97%. Trimming to task windows is
+    therefore unnecessary, and switching it on would be an unforced deviation
+    from the published method.
+
+    MATB needs no such treatment regardless: each run is 5 min of continuous
+    task, giving 59 epochs in every session.
+
+    Returns a single whole-recording window when the condition has no trial
+    codes, so MATB behaviour is unchanged.
+    """
+    from src.io.taskcodes import NBACK_TRIAL_CODES, NBACK_TRIAL_S
+
+    duration = raw.n_times / raw.info["sfreq"]
+    codes = NBACK_TRIAL_CODES.get(condition)
+    if not codes:
+        return [(0.0, duration)]
+
+    descriptions = np.array([str(d) for d in raw.annotations.description])
+    onsets = np.sort(np.asarray(raw.annotations.onset)[np.isin(descriptions, codes)])
+    if onsets.size == 0:
+        return [(0.0, duration)]
+
+    # Split trials into blocks wherever the inter-trial gap far exceeds one
+    # trial. Within a block trials are contiguous at ~2 s; between blocks there
+    # is a rest of tens of seconds, so the boundary is unambiguous.
+    gaps = np.diff(onsets)
+    splits = np.flatnonzero(gaps > NBACK_TRIAL_S * 5) + 1
+    windows = []
+    for block in np.split(onsets, splits):
+        if block.size:
+            windows.append((float(block[0]),
+                            min(float(block[-1]) + NBACK_TRIAL_S, duration)))
+    return windows
+
+
+def prepare_epochs(set_path: Path, config: dict, *, condition=None,
+                   verbose: bool = True):
     """Steps 1-6 for one task recording: everything up to (not incl.) ICA.
 
     Returns `(epochs, bads)`. ICA is deliberately *not* run here — it is fit
@@ -202,13 +265,36 @@ def prepare_epochs(set_path: Path, config: dict, *, verbose: bool = True):
         "config.yaml cleaning.epoch_rejection must be false -- the ML variant "
         "disables automatic epoch rejection (dataset.md §7.6, pitfalls #1)"
     )
-    events = mne.make_fixed_length_events(raw, duration=epoch_len, overlap=0.0)
+    # Default OFF: the published pipeline epochs the whole recording, and
+    # trimming to task windows is not needed to reproduce it (see the function
+    # docstring). Available as a robustness/diagnostic option only.
+    windows = (task_windows(raw, condition)
+               if eeg.get("task_locked_epochs", False)
+               else [(0.0, raw.n_times / raw.info["sfreq"])])
+    sfreq = raw.info["sfreq"]
+    first_samp = raw.first_samp
+    starts = []
+    for lo, hi in windows:
+        t = lo
+        while t + epoch_len <= hi:
+            starts.append(int(round(t * sfreq)) + first_samp)
+            t += epoch_len
+    if not starts:
+        raise RuntimeError(f"no task windows yielded epochs for {set_path.name}")
+    events = np.column_stack([
+        np.asarray(starts, dtype=int),
+        np.zeros(len(starts), dtype=int),
+        np.ones(len(starts), dtype=int),
+    ])
     epochs = mne.Epochs(
         raw, events, tmin=0.0, tmax=epoch_len, baseline=None,
         preload=True, reject=None, flat=None, reject_by_annotation=False,
     )
     n_epochs_made = len(epochs)
-    say(f"epoched: {n_epochs_made} x {epoch_len}s, reject=None")
+    covered = sum(hi - lo for lo, hi in windows)
+    total = raw.n_times / sfreq
+    say(f"epoched: {n_epochs_made} x {epoch_len}s, reject=None "
+        f"({len(windows)} task window(s), {100 * covered / total:.0f}% of recording)")
 
     # --- 5. bad channels at 2 SD, then interpolate. Before the average
     # reference, per the order in `gates.md` §G0.3, and before Fpz is restored
@@ -322,7 +408,8 @@ def preprocess_session(
     for condition in conditions:
         say(f"  {condition.value}")
         epochs, bads = prepare_epochs(
-            eeg_dir / f"{EEG_STEMS[condition]}.set", config, verbose=verbose
+            eeg_dir / f"{EEG_STEMS[condition]}.set", config,
+            condition=condition, verbose=verbose,
         )
         per_condition.append((condition, epochs))
         bads_by_condition[condition.value] = bads

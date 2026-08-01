@@ -151,6 +151,19 @@ BEHAVIOURAL_STEMS: dict[Condition, str] = {
     Condition.FLANKER: "Flanker",
 }
 
+#: Trial-onset trigger codes per N-Back condition, from triggerlist.txt
+#: (Normal / Hit / Conflict trial onset). Used to bound epoching to actual task
+#: periods: the N-Back recordings contain substantial non-task time before,
+#: between and after blocks, and its amount varies by session.
+NBACK_TRIAL_CODES: dict[Condition, tuple[str, ...]] = {
+    Condition.ZERO_BACK: ("6021", "6022", "6023"),
+    Condition.ONE_BACK: ("6121", "6122", "6123"),
+    Condition.TWO_BACK: ("6221", "6222", "6223"),
+}
+
+#: Trial duration: 500 ms digit + 1500 ms blank (`dataset.md` §3).
+NBACK_TRIAL_S = 2.0
+
 #: Resting-state recordings. Note "RS_End_Ec" -- lowercase 'c', unlike
 #: "RS_Beg_EC". Case-insensitive lookup is required on case-sensitive
 #: filesystems (G4.1 may rebuild on Linux).
