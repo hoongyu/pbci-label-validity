@@ -64,6 +64,10 @@ class PreprocessResult:
     interpolated: list[str]
     n_components: int
     n_components_rejected: int
+    #: ICA iterations actually run. Equal to the solver's cap means the
+    #: decomposition did NOT converge, which affects both runtime and the
+    #: reliability of the components ICLabel then classifies.
+    n_iter: int = -1
     rejected_labels: list[str] = field(default_factory=list)
     #: Every component's ICLabel class and confidence, not only those rejected.
     component_labels: list[dict] = field(default_factory=list)
@@ -445,8 +449,9 @@ def preprocess_session(
             exclude.append(idx)
             excluded_labels.append(f"{name}:{prob:.2f}")
     ica.exclude = exclude
+    n_iter = int(getattr(ica, "n_iter_", -1))
     say(f"  rejected {len(exclude)} component(s): "
-        f"{', '.join(excluded_labels) or 'none'}")
+        f"{', '.join(excluded_labels) or 'none'} [ICA {n_iter} iterations]")
 
     # Retain the full classification, not just what crossed the threshold.
     # Whether components sit just below 0.90 or are confidently 'brain' are
@@ -484,6 +489,7 @@ def preprocess_session(
             interpolated=bads_by_condition[condition.value],
             n_components=n_components,
             n_components_rejected=len(exclude),
+            n_iter=n_iter,
             rejected_labels=excluded_labels,
             component_labels=component_labels,
             covariances=covs,

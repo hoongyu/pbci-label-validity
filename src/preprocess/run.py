@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
+import os
 import time
 from pathlib import Path
 
@@ -49,8 +49,14 @@ def run_one(config: dict, subject: int, session: int, phase: str,
             payload[f"{r.condition}__{band}"] = cov.astype(np.float64)
         summary.append(r.summary())
 
+    # Write to a process-unique temp file, then rename. os.replace is atomic on
+    # the same filesystem, so two workers racing on one subject-session can only
+    # duplicate work -- never leave a half-written .npz that the skip-existing
+    # check would later treat as complete.
     out = derived_dir(config, phase) / f"sub-{subject:02d}_ses-S{session}_cov.npz"
-    np.savez_compressed(out, **payload)
+    tmp = out.with_suffix(f".npz.{os.getpid()}.tmp")
+    np.savez_compressed(tmp, **payload)
+    os.replace(tmp, out)
 
     meta = {
         "subject": subject,
@@ -63,6 +69,7 @@ def run_one(config: dict, subject: int, session: int, phase: str,
             sum(r.n_channels_interpolated for r in results) / max(len(results), 1), 3),
         "ica_components": results[0].n_components if results else None,
         "ica_components_rejected": results[0].n_components_rejected if results else None,
+        "ica_n_iter": results[0].n_iter if results else None,
         "ica_rejected_labels": results[0].rejected_labels if results else [],
         "ica_component_labels": results[0].component_labels if results else [],
         "covariance_file": str(out.relative_to(REPO_ROOT)),
