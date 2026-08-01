@@ -11,3 +11,5 @@ outputs/logs/G0.3_smoke_stdout.log
 outputs/logs/G0.3_calibration_stdout.log
 outputs/logs/G0.3_multi_sub*.log
 outputs/logs/G0.4_full_sweep.log
+outputs/logs/sweep_*.log
+outputs/logs/sweep_*.err

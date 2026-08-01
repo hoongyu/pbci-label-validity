@@ -75,6 +75,12 @@ def run_one(config: dict, subject: int, session: int, phase: str,
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--subject", type=int, default=None)
+    parser.add_argument("--subjects", type=int, nargs=2, default=None,
+                        metavar=("FIRST", "LAST"),
+                        help="inclusive subject range; lets several workers "
+                             "split the sweep. Safe to run concurrently -- "
+                             "each subject-session is independent, seeds are "
+                             "fixed, and outputs go to distinct files.")
     parser.add_argument("--session", type=int, default=None)
     parser.add_argument("--phase", default="P0")
     parser.add_argument("--quiet", action="store_true")
@@ -83,7 +89,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     config = load_config()
-    subjects = [args.subject] if args.subject else list(range(1, 30))
+    if args.subject:
+        subjects = [args.subject]
+    elif args.subjects:
+        subjects = list(range(args.subjects[0], args.subjects[1] + 1))
+    else:
+        subjects = list(range(1, 30))
     sessions = [args.session] if args.session else [1, 2, 3]
 
     for subject in subjects:
