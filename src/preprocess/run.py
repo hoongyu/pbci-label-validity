@@ -54,7 +54,11 @@ def run_one(config: dict, subject: int, session: int, phase: str,
     # duplicate work -- never leave a half-written .npz that the skip-existing
     # check would later treat as complete.
     out = derived_dir(config, phase) / f"sub-{subject:02d}_ses-S{session}_cov.npz"
-    tmp = out.with_suffix(f".npz.{os.getpid()}.tmp")
+    # The temp name must itself end in .npz: np.savez_compressed silently
+    # appends .npz to any path lacking it, so a name like "....npz.1234.tmp"
+    # gets written as "....npz.1234.tmp.npz" and the rename then fails on a
+    # file that was never created.
+    tmp = out.with_name(f"{out.stem}.{os.getpid()}.tmp.npz")
     np.savez_compressed(tmp, **payload)
     os.replace(tmp, out)
 
@@ -72,7 +76,11 @@ def run_one(config: dict, subject: int, session: int, phase: str,
         "ica_n_iter": results[0].n_iter if results else None,
         "ica_rejected_labels": results[0].rejected_labels if results else [],
         "ica_component_labels": results[0].component_labels if results else [],
-        "covariance_file": str(out.relative_to(REPO_ROOT)),
+        # paths.derived may legitimately sit outside the repo (config.yaml
+        # allows pointing at another drive), in which case relative_to raises.
+        "covariance_file": str(
+            out.relative_to(REPO_ROOT) if out.is_relative_to(REPO_ROOT) else out
+        ),
         "conditions": summary,
     }
     (out.with_suffix(".json")).write_text(json.dumps(meta, indent=2), encoding="utf-8")
@@ -108,7 +116,10 @@ def main(argv: list[str] | None = None) -> int:
         for session in sessions:
             out = (derived_dir(config, args.phase)
                    / f"sub-{subject:02d}_ses-S{session}_cov.npz")
-            if out.exists() and not args.force:
+            # Require the sidecar too: a worker killed between the two writes
+            # would otherwise leave a session that looks complete but has no
+            # metadata, and it would be skipped forever.
+            if out.exists() and out.with_suffix(".json").exists() and not args.force:
                 print(f"=== sub-{subject:02d} ses-S{session} === already done, "
                       "skipping", flush=True)
                 continue
