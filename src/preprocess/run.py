@@ -23,6 +23,16 @@ import numpy as np
 
 from src.io.inventory import load_config, raw_dir
 from src.preprocess.pipeline import preprocess_session
+from src.preprocess.resources import (
+    DEFAULT_MIN_FREE_GB,
+    describe,
+    require_free_memory,
+)
+from src.preprocess.resources import (
+    DEFAULT_MIN_FREE_GB,
+    describe,
+    require_free_memory,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -101,6 +111,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--force", action="store_true",
                         help="recompute subject-sessions that already exist")
+    parser.add_argument("--min-free-gb", type=float, default=DEFAULT_MIN_FREE_GB,
+                        help="stop rather than start a session with less free "
+                             "RAM than this (default: %(default)s)")
     args = parser.parse_args(argv)
 
     config = load_config()
@@ -124,6 +137,10 @@ def main(argv: list[str] | None = None) -> int:
                       "skipping", flush=True)
                 continue
             print(f"=== sub-{subject:02d} ses-S{session} ===", flush=True)
+            # Do not allocate into an already-short system: that is what
+            # produced the 0xFD bugcheck on 2026-08-03.
+            require_free_memory(args.min_free_gb,
+                                label=f"sub-{subject:02d} ses-S{session}")
             meta = run_one(config, subject, session, args.phase,
                            verbose=not args.quiet)
             print(json.dumps({k: v for k, v in meta.items() if k != "conditions"},

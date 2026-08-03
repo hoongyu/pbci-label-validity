@@ -28,6 +28,7 @@ stays in `data/derived/P0/`. This writes to `data/derived/P1_descriptive/`.
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import os
 import time
@@ -38,6 +39,11 @@ import numpy as np
 
 from src.io.inventory import REPO_ROOT, load_config, raw_dir
 from src.io.taskcodes import EEG_STEMS, IN_SCOPE
+from src.preprocess.resources import (
+    DEFAULT_MIN_FREE_GB,
+    describe,
+    require_free_memory,
+)
 from src.preprocess.pipeline import (
     ICA_FIT_DECIM,
     ICLABEL_CLASSES,
@@ -125,6 +131,10 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
             warnings.simplefilter("ignore")
             raw = mne.io.read_raw_eeglab(path, preload=True)
         raw.drop_channels([c for c in raw.ch_names if "ECG" in c.upper()])
+        # Resample immediately, before the next recording is loaded. Holding
+        # all six at the acquisition rate first is what made this pipeline's
+        # startup peak twice its steady state, and that peak is what pushed the
+        # machine into dirty-page congestion on 2026-08-03.
         raw.resample(sfreq_target)
         raw.filter(1.0, 45.0, fir_design="firwin")
         boundaries.append((condition, raw.n_times / raw.info["sfreq"]))
@@ -132,6 +142,13 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
 
     # --- clean the CONTINUOUS signal, before any epoching
     combined = mne.concatenate_raws(raws)
+    raws.clear()                     # release the per-recording copies
+    gc.collect()
+    # concatenate_raws consumes the list but the local reference keeps every
+    # source Raw alive -- ~265 MB that is never used again. Dropping it matters
+    # on a machine that bluescreened under memory pressure.
+    raws.clear()
+    del raws
     say(f"continuous: {combined.n_times / combined.info['sfreq']:.0f}s, "
         f"{len(combined.ch_names)} channels")
 
@@ -278,8 +295,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--session", type=int, default=None)
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--min-free-gb", type=float, default=DEFAULT_MIN_FREE_GB,
+                        help="refuse to start a session below this much free RAM")
     args = parser.parse_args(argv)
 
+    print(f"memory: {describe()}", flush=True)
     config = load_config()
     raw = raw_dir(config)
     out_dir = derived_dir(config)
@@ -300,6 +320,10 @@ def main(argv: list[str] | None = None) -> int:
                       flush=True)
                 continue
             print(f"=== sub-{subject:02d} ses-S{session} ===", flush=True)
+            # Do not begin a session unless there is room for it. Allocating
+            # into an already-short system is what produced the 0xFD bugcheck.
+            require_free_memory(args.min_free_gb,
+                                label=f"sub-{subject:02d} ses-S{session}")
             started = time.time()
             result = preprocess_session_descriptive(
                 raw, config, subject=subject, session=session,
