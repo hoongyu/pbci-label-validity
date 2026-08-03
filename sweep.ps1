@@ -24,7 +24,9 @@ param(
     [int]$First = 1,            # subject range, inclusive -- lets a pilot run
     [int]$Last = 29,            # a subset before committing to all 29
     [switch]$Descriptive,
-    [switch]$Status
+    [switch]$Status,
+    [switch]$Watch,             # live progress, redrawn until Ctrl+C
+    [int]$Every = 20            # -Watch refresh interval, seconds
 )
 
 # Memory per worker at peak, and headroom left for the OS write-back cache.
@@ -60,6 +62,84 @@ function Show-Progress {
     Write-Host "free RAM: $free GB"
 }
 
+function Get-Done {
+    param([int]$f, [int]$l, [bool]$desc)
+    $n = 0
+    for ($s = $f; $s -le $l; $s++) {
+        for ($ses = 1; $ses -le 3; $ses++) {
+            $p = if ($desc) {
+                Join-Path $root ("data\derived\P1_descriptive\sub-{0:D2}_ses-S{1}_power.json" -f $s, $ses)
+            } else {
+                Join-Path $root ("data\derived\P0\sub-{0:D2}_ses-S{1}_cov.npz" -f $s, $ses)
+            }
+            if (Test-Path $p) { $n++ }
+        }
+    }
+    return $n
+}
+
+function Show-Watch {
+    param([int]$f, [int]$l, [bool]$desc, [int]$every)
+
+    $total = ($l - $f + 1) * 3
+    $label = if ($desc) { "P1 descriptive (band power)" } else { "P0 (ML variant)" }
+    $startDone = Get-Done $f $l $desc
+    $startTime = Get-Date
+
+    while ($true) {
+        $done = Get-Done $f $l $desc
+        $pct = if ($total) { 100.0 * $done / $total } else { 0 }
+        $width = 34
+        $fill = [math]::Round($width * $pct / 100)
+        $bar = ('#' * $fill) + ('.' * ($width - $fill))
+
+        $running = @(Get-Process python -ErrorAction SilentlyContinue |
+                     Where-Object { $_.WorkingSet64 -gt 100MB })
+        $free = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB
+
+        # Rate from work done since this watch started -- an ETA from the whole
+        # history would be wrong after any pause, crash or reboot.
+        $elapsed = ((Get-Date) - $startTime).TotalMinutes
+        $delta = $done - $startDone
+        $eta = if ($delta -gt 0 -and $elapsed -gt 0) {
+            $perSession = $elapsed / $delta
+            $mins = ($total - $done) * $perSession
+            if ($mins -lt 90) { "{0:N0} min" -f $mins } else { "{0:N1} h" -f ($mins / 60) }
+        } else { "--" }
+
+        Clear-Host
+        Write-Host "  $label   subjects $f-$l" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host ("  [$bar] {0}/{1}  {2:N1}%" -f $done, $total, $pct)
+        Write-Host ""
+        Write-Host ("  workers  : {0}" -f $running.Count)
+        foreach ($p in $running) {
+            $cl = (Get-CimInstance Win32_Process -Filter "ProcessId=$($p.Id)").CommandLine
+            $r = if ($cl -match '--subjects\s+(\d+)\s+(\d+)') { $Matches[1] + '-' + $Matches[2] } else { '?' }
+            Write-Host ("             subjects {0,-6} {1,5:N0} MB   {2,4:N0} min" -f `
+                        $r, ($p.WorkingSet64 / 1MB), ((Get-Date) - $p.StartTime).TotalMinutes)
+        }
+        $memColour = if ($free -lt 2.0) { "Red" } elseif ($free -lt 3.5) { "Yellow" } else { "Gray" }
+        Write-Host ("  free RAM : {0:N2} GB" -f $free) -ForegroundColor $memColour
+        Write-Host ("  done this session: {0}   ETA: {1}" -f $delta, $eta)
+        Write-Host ""
+
+        if ($done -ge $total) {
+            Write-Host "  COMPLETE" -ForegroundColor Green
+            return
+        }
+        if ($running.Count -eq 0) {
+            Write-Host "  No workers running -- relaunch with:" -ForegroundColor Yellow
+            $flag = if ($desc) { " -Descriptive" } else { "" }
+            Write-Host "    .\sweep.ps1$flag -First $f -Last $l" -ForegroundColor Yellow
+            return
+        }
+        Write-Host "  Ctrl+C to stop watching (workers keep running)" -ForegroundColor DarkGray
+        Start-Sleep -Seconds $every
+    }
+}
+
+if ($Watch) { Show-Watch $First $Last ([bool]$Descriptive) $Every; return }
 if ($Status) { Show-Progress; return }
 
 $existing = @(Get-Process python -ErrorAction SilentlyContinue |
