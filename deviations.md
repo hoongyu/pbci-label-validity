@@ -155,3 +155,47 @@ statistical result existed.
 **Disclosure.** This belongs in the manuscript's methods, not only in this log:
 the published threshold could not be reproduced as stated and a calibrated
 substitute was used.
+
+---
+
+## 2026-08-02 — N-Back behaviour derived from EEG triggers, not the behavioural `.mat`
+
+**What changed.** `dataset.md` §4 specifies N-Back accuracy and reaction time
+from the per-trial behavioural records. Those records are in
+`ses-SY/behavioral/{0,1,2}-Back.mat`. This project reads them from the EEG
+trigger annotations instead.
+
+**Why.** N-Back, Flanker and PVT behavioural files are MATLAB **tables**
+(`dataset.md` §8 notes the format but not its consequence). MATLAB tables are
+MCOS objects; `scipy.io.loadmat` cannot decode them and returns an opaque
+`('MCOS', 'table', <ref>)` handle carrying no data. Reading them would need a
+MATLAB licence, or a new dependency that is not in `env/requirements.lock` and
+is not guaranteed to handle MCOS either.
+
+The trigger list carries the same events — trial onsets (`6x21`/`6x22`),
+correct responses (`6x32`), errors (`6x31`) and conflict errors (`6x33`) — and
+does so on the same clock as the EEG, which is arguably preferable for a study
+relating behaviour to EEG.
+
+**Validation.** The derived measures reproduce the expected load gradient
+without any tuning:
+
+| Condition | Accuracy | Error rate | False alarms | Mean RT (s) |
+|---|---|---|---|---|
+| 0-back | 0.990 | 0.010 | 0.95 | 0.407 |
+| 1-back | 0.985 | 0.015 | 1.03 | 0.461 |
+| 2-back | 0.885 | 0.115 | 12.24 | 0.610 |
+
+Accuracy falls, error rate and RT rise. The formal test is G1.2, which must
+replicate F(2,56) = 52.25 for N-Back error rate.
+
+**Timing.** Decided **after** seeing that the files are unreadable — a fact
+about the file format, not about a result — and **before** any P1 statistic was
+computed.
+
+**Residual risk.** Trigger-derived accuracy counts a response only where the
+paradigm emitted a response code. If the behavioural tables record responses
+the triggers omit (for instance responses outside a scoring window), the two
+sources would disagree. This cannot be checked without reading the tables. If a
+collaborator with MATLAB can export them to CSV, the comparison is worth doing
+and would either retire this deviation or quantify it.
