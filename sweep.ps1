@@ -21,6 +21,8 @@
 
 param(
     [int]$Workers = 0,          # 0 = derive from free memory
+    [int]$First = 1,            # subject range, inclusive -- lets a pilot run
+    [int]$Last = 29,            # a subset before committing to all 29
     [switch]$Descriptive,
     [switch]$Status
 )
@@ -96,11 +98,10 @@ Write-Host ("{0:N2} GB free -> {1} worker(s)" -f $freeGB, $Workers)
 # and seeds are fixed in config.yaml, so splitting changes nothing about the
 # results -- only how long it takes.
 $module = if ($Descriptive) { "src.preprocess.descriptive" } else { "src.preprocess.run" }
-$first, $last = 1, 29
-$size = [math]::Ceiling(($last - $first + 1) / $Workers)
+$size = [math]::Ceiling(($Last - $First + 1) / $Workers)
 $blocks = @()
-for ($s = $first; $s -le $last; $s += $size) {
-    $blocks += , @($s, [math]::Min($s + $size - 1, $last))
+for ($s = $First; $s -le $Last; $s += $size) {
+    $blocks += , @($s, [math]::Min($s + $size - 1, $Last))
 }
 
 $env:OMP_NUM_THREADS = "2"

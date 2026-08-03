@@ -274,7 +274,10 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
                             entry[f"logpower_{band}_{roi}{label}__{tag}"] = \
                                 float(np.log(v).mean())
         out["conditions"][condition.value] = entry
-        say(f"  {condition.value:<15} {n_kept}/{n_made} epochs kept")
+        kept = entry.get("n_kept", {})
+        say(f"  {condition.value:<15} {n_made} epochs, kept "
+            + ", ".join(f"{tag}={kept[tag]}" for tag in REJECT_THRESHOLDS
+                        if tag in kept))
 
     return out
 
