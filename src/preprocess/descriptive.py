@@ -54,11 +54,27 @@ EPOCH_LENGTH_S = 8.0
 #: for anything compared against the decoding baseline (`pitfalls.md` #6).
 BANDS = {"theta": (4.0, 8.0), "alpha": (8.0, 13.0)}
 
-#: Peak-to-peak epoch rejection threshold, in volts. INTERPRETIVE: the
-#: references give the outcome (~16 epochs per task) but not the criterion.
-#: The achieved rate is reported per session so this can be calibrated against
-#: the published figure the same way `bad_channel_sd` was.
-EPOCH_REJECT_PTP = 150e-6
+#: Epoch-rejection thresholds evaluated in parallel, in volts.
+#:
+#: INTERPRETIVE, and irreducibly so. The references give the outcome (~16
+#: epochs rejected per task, `dataset.md` §7.5) but not the criterion, and no
+#: fixed peak-to-peak threshold satisfies both that count and equal treatment
+#: of conditions. Measured on sub-01/ses-S1, median PTP is 98 / 162 / 219 uV
+#: for MATB easy / medium / difficult -- the distribution shifts with
+#: difficulty, so amplitude-based rejection preferentially discards the
+#: high-workload condition. At 150 uV the mean rejection is 14.3/task (close to
+#: published) but the per-condition spread is 34 epochs; at 300 uV the spread
+#: falls to 3 but almost nothing is rejected.
+#:
+#: Rather than choose the flattering number, power is computed under all of
+#: them so any conclusion can be checked against the choice. `none` is the
+#: primary: it cannot bias the difficulty axis, matching the ML variant's
+#: reasoning for disabling epoch rejection.
+REJECT_THRESHOLDS: dict[str, float | None] = {
+    "none": None,
+    "ptp150": 150e-6,
+    "ptp300": 300e-6,
+}
 
 #: ROIs over the full montage. The 10-channel subset exists for the decoding
 #: baseline; a descriptive band-power analysis has no reason to be restricted
@@ -204,39 +220,42 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
                 for th in (75e-6, 100e-6, 150e-6, 200e-6, 300e-6, 500e-6, 1e-3)
             },
         }
-        keep = ptp <= EPOCH_REJECT_PTP
-        if keep.sum() == 0:
-            say(f"  {condition.value:<15} 0/{n_made} kept at "
-                f"{EPOCH_REJECT_PTP * 1e6:.0f} uV -- threshold too strict")
-            out["conditions"][condition.value] = entry
-            continue
-        epochs = epochs[np.flatnonzero(keep)]
-        n_kept = len(epochs)
-        entry["n_epochs_kept"] = n_kept
-        entry["n_epochs_rejected"] = n_made - n_kept
-        data_all = epochs.copy().pick(picks_all).get_data(copy=True)
-        names_all = epochs.copy().pick(picks_all).ch_names
+        picked = epochs.copy().pick(picks_all)
+        data_all = np.ascontiguousarray(picked.get_data(copy=True))
+        names_all = picked.ch_names
         sfreq = float(epochs.info["sfreq"])
 
+        # Band-filter once, then evaluate every rejection threshold on the
+        # result. No fixed peak-to-peak threshold can both match the published
+        # ~16 epochs/task and avoid difficulty-graded loss in MATB: the PTP
+        # distribution itself shifts with difficulty (median 98 / 162 / 219 uV
+        # for easy / medium / difficult) because harder MATB activates more
+        # subtasks and so produces more EMG. That is a property of the
+        # paradigm, not noise. Computing power under each threshold turns an
+        # unresolvable parameter choice into a sensitivity analysis.
         for band, (lo, hi) in BANDS.items():
-            filtered = mne.filter.filter_data(np.ascontiguousarray(data_all),
-                                              sfreq, lo, hi, fir_design="firwin",
-                                              verbose=False)
+            filtered = mne.filter.filter_data(data_all.copy(), sfreq, lo, hi,
+                                              fir_design="firwin", verbose=False)
             power = filtered.var(axis=2)                     # (n_epochs, n_ch)
-            for roi in ("frontal", "central", "posterior"):
-                picks = [i for i, c in enumerate(names_all) if _roi_of(c) == roi]
-                if picks:
-                    v = power[:, picks].mean(axis=1)
-                    v = v[np.isfinite(v) & (v > 0)]
-                    if v.size:
-                        entry[f"logpower_{band}_{roi}"] = float(np.log(v).mean())
-                subset = [i for i, c in enumerate(names_all)
-                          if c in SUBSET_ROIS[roi]]
-                if subset:
-                    v = power[:, subset].mean(axis=1)
-                    v = v[np.isfinite(v) & (v > 0)]
-                    if v.size:
-                        entry[f"logpower_{band}_{roi}_subset"] = float(np.log(v).mean())
+            for tag, threshold_v in REJECT_THRESHOLDS.items():
+                keep = (np.ones(n_made, bool) if threshold_v is None
+                        else ptp <= threshold_v)
+                if keep.sum() < 3:
+                    continue
+                entry.setdefault("n_kept", {})[tag] = int(keep.sum())
+                block = power[keep]
+                for roi in ("frontal", "central", "posterior"):
+                    for label, channels in (("", None), ("_subset", SUBSET_ROIS[roi])):
+                        picks = [i for i, c in enumerate(names_all)
+                                 if (_roi_of(c) == roi if channels is None
+                                     else c in channels)]
+                        if not picks:
+                            continue
+                        v = block[:, picks].mean(axis=1)
+                        v = v[np.isfinite(v) & (v > 0)]
+                        if v.size:
+                            entry[f"logpower_{band}_{roi}{label}__{tag}"] = \
+                                float(np.log(v).mean())
         out["conditions"][condition.value] = entry
         say(f"  {condition.value:<15} {n_kept}/{n_made} epochs kept")
 
