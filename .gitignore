@@ -13,3 +13,4 @@ outputs/logs/G0.3_multi_sub*.log
 outputs/logs/G0.4_full_sweep.log
 outputs/logs/sweep_*.log
 outputs/logs/sweep_*.err
+outputs/logs/P1desc_*.log

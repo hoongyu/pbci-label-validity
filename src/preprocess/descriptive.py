@@ -179,16 +179,41 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
         events = np.column_stack([np.asarray(starts, dtype=int),
                                   np.zeros(len(starts), dtype=int),
                                   np.ones(len(starts), dtype=int)])
+        # Build unrejected first so the peak-to-peak distribution can be
+        # recorded. A fixed threshold rejects far more of the harder MATB
+        # conditions (more active subtasks, more EMG), and differential loss
+        # along the very axis under test would bias the difficulty comparison.
+        # Recording percentiles lets the threshold be calibrated offline
+        # against the published ~16/task without re-running ICA.
         epochs = mne.Epochs(combined, events, tmin=0.0, tmax=EPOCH_LENGTH_S,
-                            baseline=None, preload=True,
-                            reject=dict(eeg=EPOCH_REJECT_PTP),
+                            baseline=None, preload=True, reject=None,
                             reject_by_annotation=False)
-        n_made, n_kept = len(starts), len(epochs)
-        if n_kept == 0:
+        n_made = len(epochs)
+        if n_made == 0:
             continue
-
-        entry: dict = {"n_epochs_made": n_made, "n_epochs_kept": n_kept,
-                       "n_epochs_rejected": n_made - n_kept}
+        raw_data = epochs.get_data(picks="eeg", copy=False)
+        ptp = (raw_data.max(axis=2) - raw_data.min(axis=2)).max(axis=1)  # per epoch
+        entry: dict = {
+            "n_epochs_made": n_made,
+            "ptp_percentiles_uV": {
+                str(q): float(np.percentile(ptp, q) * 1e6)
+                for q in (10, 25, 50, 75, 90, 95, 99)
+            },
+            "n_kept_at_uV": {
+                str(int(th * 1e6)): int((ptp <= th).sum())
+                for th in (75e-6, 100e-6, 150e-6, 200e-6, 300e-6, 500e-6, 1e-3)
+            },
+        }
+        keep = ptp <= EPOCH_REJECT_PTP
+        if keep.sum() == 0:
+            say(f"  {condition.value:<15} 0/{n_made} kept at "
+                f"{EPOCH_REJECT_PTP * 1e6:.0f} uV -- threshold too strict")
+            out["conditions"][condition.value] = entry
+            continue
+        epochs = epochs[np.flatnonzero(keep)]
+        n_kept = len(epochs)
+        entry["n_epochs_kept"] = n_kept
+        entry["n_epochs_rejected"] = n_made - n_kept
         data_all = epochs.copy().pick(picks_all).get_data(copy=True)
         names_all = epochs.copy().pick(picks_all).ch_names
         sfreq = float(epochs.info["sfreq"])
