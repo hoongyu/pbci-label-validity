@@ -300,6 +300,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--min-free-gb", type=float, default=DEFAULT_MIN_FREE_GB,
                         help="refuse to start a session below this much free RAM")
+    parser.add_argument("--wait-hours", type=float, default=8.0,
+                        help="how long to wait for memory before giving up "
+                             "(default: %(default)s). A full sweep is ~10 h of "
+                             "unattended compute on a machine someone is also "
+                             "using, so the guard's 30 min default is too short: "
+                             "any application the user opens for an evening kills "
+                             "the worker and the sweep silently stops. Waiting is "
+                             "free and the run is resumable either way.")
     args = parser.parse_args(argv)
 
     print(f"memory: {describe()}", flush=True)
@@ -326,6 +334,7 @@ def main(argv: list[str] | None = None) -> int:
             # Do not begin a session unless there is room for it. Allocating
             # into an already-short system is what produced the 0xFD bugcheck.
             require_free_memory(args.min_free_gb,
+                                timeout_s=args.wait_hours * 3600.0,
                                 label=f"sub-{subject:02d} ses-S{session}")
             started = time.time()
             result = preprocess_session_descriptive(

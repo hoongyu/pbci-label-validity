@@ -163,6 +163,25 @@ if ($affordable -lt 1) {
 }
 $affordable = [math]::Min($affordable, 4)
 
+# The descriptive variant is capped at ONE worker, and this is a throughput
+# decision rather than a safety one. Measured from `elapsed_s` across the 24
+# pilot sessions (2026-08-03 and 08-05):
+#
+#     one worker alone   median 10.0 min/session  ->  1 session per 10.0 min
+#     two workers        median 50.6 min/session  ->  1 session per 25.3 min
+#
+# Two workers are ~2.5x SLOWER in total throughput, not faster. The machine has
+# 10 physical cores and each worker is held to 2 threads, so CPU is not the
+# constraint; memory is. Other applications hold ~10 GB of the 15.6 GB, a second
+# worker drives free memory to ~2 GB, and the OS begins compressing and paging
+# -- the same pressure that produced the 0xFD bugcheck, stopping short of
+# crashing. Each worker then spends most of its time waiting on memory.
+#
+# So the premise this script was built on -- worker count sized to free RAM --
+# is wrong here beyond the first worker. It is left in place for the P0 variant,
+# which peaks lower and did show a normal parallel speedup.
+if ($Descriptive) { $affordable = [math]::Min($affordable, 1) }
+
 if ($Workers -gt 0) {
     if ($Workers -gt $affordable) {
         Write-Host ("Requested {0} workers but only {1} fit in {2:N2} GB free; using {1}." -f `

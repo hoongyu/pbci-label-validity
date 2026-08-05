@@ -38,6 +38,9 @@ DEFAULT_TIMEOUT_S = 1800.0
 
 POLL_S = 20.0
 
+#: How often a blocked wait re-announces itself in the log.
+REPORT_S = 600.0
+
 
 class InsufficientMemory(RuntimeError):
     """Raised when free memory stays below the floor for too long."""
@@ -76,12 +79,15 @@ def require_free_memory(minimum_gb: float = DEFAULT_MIN_FREE_GB, *,
     continue on its own. Proceeding anyway is what crashed the machine.
     """
     deadline = time.time() + timeout_s
-    warned = False
+    started = time.time()
+    waiting = False
+    last_report = 0.0
     while True:
         available = free_gb()
         if available >= minimum_gb:
-            if warned and verbose:
-                print(f"    memory recovered ({available:.2f} GB free), continuing",
+            if waiting and verbose:
+                print(f"    memory recovered ({available:.2f} GB free) after "
+                      f"{(time.time() - started) / 60:.0f} min, continuing",
                       flush=True)
             return
         if time.time() >= deadline:
@@ -92,11 +98,21 @@ def require_free_memory(minimum_gb: float = DEFAULT_MIN_FREE_GB, *,
                 f"within {timeout_s / 60:.0f} min. Largest consumers: {consumers}. "
                 "Close something, or run fewer workers."
             )
-        if not warned and verbose:
-            print(f"    waiting for memory: {available:.2f} GB free, "
-                  f"need {minimum_gb:.2f} GB{f' for {label}' if label else ''}",
+        # Re-report periodically, not once. A wait can now run for hours
+        # (`descriptive.py --wait-hours`), and a log that goes silent after a
+        # single line is indistinguishable from a hung worker -- which invites
+        # killing a process that is doing exactly the right thing. Naming the
+        # largest consumer each time also tells the user what to close.
+        elapsed = time.time() - started
+        if verbose and (not waiting or elapsed - last_report >= REPORT_S):
+            consumers = ", ".join(f"{name} {gb:.1f} GB"
+                                  for name, gb in top_consumers(2))
+            print(f"    waiting for memory ({elapsed / 60:5.0f} min): "
+                  f"{available:.2f} GB free, need {minimum_gb:.2f} GB"
+                  f"{f' for {label}' if label else ''}. Largest: {consumers}",
                   flush=True)
-            warned = True
+            last_report = elapsed
+            waiting = True
         time.sleep(POLL_S)
 
 
