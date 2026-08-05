@@ -85,11 +85,51 @@ def partial_eta_sq(f: float, n: int, df1: float = 2.0) -> float:
     """Partial eta-squared from F for a within-subject main effect.
 
     df_error = df1 * (n - 1), so eta_p^2 = F*df1 / (F*df1 + df2) reduces to
-    F / (F + n - 1) and is independent of sample size.
+    F / (F + n - 1). The *formula* carries no explicit n, which is why it is
+    usually described as sample-size free.
+
+    The *estimator* is not. E[eta_p^2] exceeds the population value, and the
+    bias grows as n falls -- an effect of exactly zero still returns
+    E[F] ~ df2/(df2-2), so eta_p^2 is positive on average whatever the truth.
+    At n=7 the bias is large enough to matter here. Comparing an eta_p^2 from
+    n=7 against one from n=29 therefore still tilts toward the smaller sample,
+    just far less than comparing F or p would.
+
+    `matched_n_ml` below removes the bias by re-fitting the ML variant on the
+    same subjects, so both estimates carry the same bias and cancel.
     """
     if not np.isfinite(f) or n < 2:
         return float("nan")
     return float(f * df1 / (f * df1 + df1 * (n - 1)))
+
+
+def matched_n_ml(subjects: list[int]) -> dict[tuple[str, str, str], tuple[float, int]]:
+    """ML-variant N-Back fits restricted to `subjects`, in ML_VARIANT_F's shape.
+
+    `ML_VARIANT_F` holds the n=29 attempt-1 result. Comparing the descriptive
+    pilot against it confounds two things: the preprocessing variant, and the
+    sample. This re-fits the ML variant on precisely the subjects the
+    descriptive run covers, leaving the variant as the only difference.
+
+    Returns an empty dict if `cells.csv` is absent, in which case the caller
+    falls back to the published n=29 numbers.
+    """
+    cells = REPO_ROOT / "data" / "derived" / "P1" / "cells.csv"
+    if not cells.exists() or not subjects:
+        return {}
+    table = pd.read_csv(cells)
+    table = table[table.subject.isin(subjects)]
+    out: dict[tuple[str, str, str], tuple[float, int]] = {}
+    for band in BANDS:
+        for roi in ROIS_ORDER:
+            column = f"logpower_{band}_{roi}"
+            if column not in table:
+                continue
+            fit = rm_anova(table, "nback", column)
+            f = fit.get("F_difficulty")
+            if f is not None:
+                out[("nback", band, roi)] = (float(f), int(fit["n"]))
+    return out
 
 
 def load_power(directory: Path) -> tuple[pd.DataFrame, list[str]]:
@@ -240,9 +280,19 @@ def main(argv: list[str] | None = None) -> int:
     # published n=29. A null at n=7 is weak evidence by construction. Comparing
     # effect sizes against the ML-variant run separates "the descriptive variant
     # removed the effect" from "n=7 could not detect it".
+    #
+    # Two ML baselines are reported. The published-n one (n=29) is the honest
+    # comparison against the attempt-1 verdict; the matched-n one re-fits the
+    # ML variant on the same subjects, which is the comparison that isolates
+    # the preprocessing variant. Where the two disagree, the matched-n column
+    # is the one that says something about the pipeline.
+    subjects = sorted(int(s) for s in table.subject.unique())
+    matched = matched_n_ml(subjects)
     print("\n=== effect size vs the ML variant (N-Back) ===")
-    print("partial eta^2 is sample-size free; F is not. A criterion that now")
-    print("passes but whose effect size did NOT fall is an underpowered null.")
+    print("partial eta^2 removes most of the sample-size dependence of F, but is")
+    print("itself biased upward at small n -- so 'eta2_ML' below (n=29) is a")
+    print("conservative baseline. 'eta2_ML_matched' re-fits the ML variant on the")
+    print("SAME subjects, leaving the preprocessing variant as the only difference.")
     fits = pd.DataFrame(all_fits)
     rows = []
     for (task, band, roi), (f_ml, n_ml) in ML_VARIANT_F.items():
@@ -254,11 +304,18 @@ def main(argv: list[str] | None = None) -> int:
         n_desc = int(block.iloc[0]["n"])
         eta_ml = partial_eta_sq(f_ml, n_ml)
         eta_desc = partial_eta_sq(f_desc, n_desc)
+        f_match, n_match = matched.get((task, band, roi), (float("nan"), 0))
+        eta_match = partial_eta_sq(f_match, n_match) if n_match else float("nan")
+        # Judge the variant on the matched-n baseline when it exists: it is the
+        # only one of the two that holds the sample constant.
+        reference = eta_match if np.isfinite(eta_match) else eta_ml
         rows.append({"measure": f"{band} {roi}", "F_ML": f_ml, "n_ML": n_ml,
-                     "eta2_ML": eta_ml, "F_desc": f_desc, "n_desc": n_desc,
+                     "eta2_ML": eta_ml, "F_ML_matched": f_match,
+                     "n_ML_matched": n_match, "eta2_ML_matched": eta_match,
+                     "F_desc": f_desc, "n_desc": n_desc,
                      "eta2_desc": eta_desc,
-                     "verdict": "effect shrank" if eta_desc < eta_ml * 0.6
-                     else ("effect grew" if eta_desc > eta_ml * 1.4
+                     "verdict": "effect shrank" if eta_desc < reference * 0.6
+                     else ("effect grew" if eta_desc > reference * 1.4
                            else "effect unchanged")})
     comparison = pd.DataFrame(rows)
     with pd.option_context("display.width", 200):
