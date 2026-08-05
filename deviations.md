@@ -199,3 +199,59 @@ the triggers omit (for instance responses outside a scoring window), the two
 sources would disagree. This cannot be checked without reading the tables. If a
 collaborator with MATLAB can export them to CSV, the comparison is worth doing
 and would either retire this deviation or quantify it.
+
+---
+
+## 2026-08-05 — G1.2 Part B decision rule replaced with a symmetric, pre-committed one
+
+**What changed.** Before running the descriptive-variant pilot I stated the
+rule: *if the anomaly appears, extend to all 29 subjects; if it does not, this
+is the documented fork.* That rule is replaced, before the remaining subjects
+are run, by the symmetric rule below.
+
+**Why.** The original rule is biased in a way I did not notice until it
+returned a disconfirming result. It grants a **confirming** pilot a larger
+sample and a **disconfirming** pilot none, so the fuller and more reliable
+estimate is only ever collected when the pilot agrees with the hypothesis. Any
+rule of that shape inflates apparent support for whatever the pilot happened to
+show, and here it would have sent the entire project into the "published result
+does not replicate" fork on n=7.
+
+The pilot additionally cannot decide Part B in either direction, which the
+original rule assumed it could. Every N-Back criterion is a **null** claim; at
+n=7 against a published n=29 those nulls are weak by construction. Measured
+(`outputs/tables/G1.2_partB_effectsize_vs_ML.csv`): posterior theta **passes**
+the null criterion in the pilot while its partial η² is 0.250 against 0.129 in
+the attempt-1 run where it **failed** — twice the effect, opposite verdict,
+purely from lost power. Frontal theta likewise passes with a 4× larger effect.
+Treating those as confirmation would be wrong.
+
+**The replacement rule, pre-committed.** Applies once subjects 1–29 have been
+processed by `src/preprocess/descriptive.py` and
+`analyses/P1_divergence/descriptive_partb.py` is re-run. Primary combination:
+`ROI=full`, `reject=none` (chosen because it cannot bias the difficulty axis —
+the peak-to-peak distribution shifts with MATB difficulty). The other five
+combinations are reported as a stability check and cannot change the verdict.
+
+| Outcome at n≈29 | Verdict | Action |
+|---|---|---|
+| All 7 criteria hold | G1.2 **PASS** | proceed to G1.3 |
+| Any MATB criterion fails | pipeline fault, **not** a fork | debug; MATB is the positive control |
+| MATB holds and any N-Back null fails | **the documented fork** (`gates.md` §G1.2) | stop; re-plan with mentor |
+| A criterion's verdict differs across the six combinations | **inconclusive** | report as parameter-dependent; do not pick a combination |
+
+**No parameter, threshold, band, ROI definition, subject exclusion or channel
+set will be introduced, tuned or dropped after seeing the n≈29 result.** If the
+result is disliked, the response is to report it, not to re-specify the test.
+This is the same red line recorded under the 2026-07-30 bad-channel entry.
+
+**Timing.** Written **after** seeing the n=7 pilot result and **before** any
+subject 9–29 was processed by the descriptive pipeline. The pilot's numbers are
+in `outputs/logs/G1.2_2026-08-05_attempt2.md`, which predates this entry, so the
+sequence is checkable rather than merely asserted.
+
+**Residual risk.** The pilot is a subset of the full sample, not an independent
+one, so the n≈29 result is not independent of what I have already seen. That is
+unavoidable — the alternative is discarding real data — but it means the n≈29
+run is a **larger** test, not a fresh one, and should be described that way. It
+is not a replication of the pilot.
