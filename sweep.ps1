@@ -24,13 +24,17 @@ param(
     [int]$First = 1,            # subject range, inclusive -- lets a pilot run
     [int]$Last = 29,            # a subset before committing to all 29
     [switch]$Descriptive,
+    [switch]$Add,               # start workers ALONGSIDE ones already running
     [switch]$Status,
     [switch]$Watch,             # live progress, redrawn until Ctrl+C
     [int]$Every = 20            # -Watch refresh interval, seconds
 )
 
 # Memory per worker at peak, and headroom left for the OS write-back cache.
-$PerWorkerGB = 1.6
+# 1.6 was an estimate; 1.92 GB is the largest PeakWorkingSet64 actually measured
+# on a descriptive worker (2026-08-06). Rounded up rather than to the observed
+# value -- the whole point of this number is to be wrong in the safe direction.
+$PerWorkerGB = 2.0
 $ReserveGB = 3.0
 
 $ErrorActionPreference = "Stop"
@@ -144,10 +148,21 @@ if ($Status) { Show-Progress; return }
 
 $existing = @(Get-Process python -ErrorAction SilentlyContinue |
               Where-Object { $_.WorkingSet64 -gt 100MB })
-if ($existing.Count -gt 0) {
+if ($existing.Count -gt 0 -and -not $Add) {
     Write-Host "$($existing.Count) worker(s) already running; not starting more."
+    Write-Host "Use -Add (with an explicit -First/-Last range) to run more in parallel."
     Show-Progress
     return
+}
+# -Add exists because free memory is measured with the running workers' pages
+# already resident, so the formula below -- written for a cold start -- charges
+# for them twice and concludes nothing more fits. Adding a worker to a sweep
+# that is already going is a normal thing to want when the machine frees up.
+# Give it a range that does not overlap what the running workers still have to
+# do; overlap is safe (completed sessions are skipped and writes are atomic) but
+# wastes compute on duplicates.
+if ($Add -and $existing.Count -gt 0) {
+    Write-Host "$($existing.Count) worker(s) already running; adding alongside them."
 }
 
 # Size the worker count to what is actually free right now, never to the core
@@ -163,24 +178,28 @@ if ($affordable -lt 1) {
 }
 $affordable = [math]::Min($affordable, 4)
 
-# The descriptive variant is capped at ONE worker, and this is a throughput
-# decision rather than a safety one. Measured from `elapsed_s` across the 24
-# pilot sessions (2026-08-03 and 08-05):
+# NOTE, and a correction to an earlier version of this file. The descriptive
+# variant was briefly hard-capped at one worker, on the strength of this:
 #
-#     one worker alone   median 10.0 min/session  ->  1 session per 10.0 min
-#     two workers        median 50.6 min/session  ->  1 session per 25.3 min
+#     one worker alone   median 10.0 min/session
+#     two workers        median 50.6 min/session   -> ~2.5x slower in total
 #
-# Two workers are ~2.5x SLOWER in total throughput, not faster. The machine has
-# 10 physical cores and each worker is held to 2 threads, so CPU is not the
-# constraint; memory is. Other applications hold ~10 GB of the 15.6 GB, a second
-# worker drives free memory to ~2 GB, and the OS begins compressing and paging
-# -- the same pressure that produced the 0xFD bugcheck, stopping short of
-# crashing. Each worker then spends most of its time waiting on memory.
+# Those numbers are real but the conclusion drawn from them was wrong. Both
+# two-worker measurements were taken while free memory sat near 2 GB, with the
+# OS compressing and paging hard. Re-measured on 2026-08-06 with ~4.2 GB free
+# and two workers running:
 #
-# So the premise this script was built on -- worker count sized to free RAM --
-# is wrong here beyond the first worker. It is left in place for the P0 variant,
-# which peaks lower and did show a normal parallel speedup.
-if ($Descriptive) { $affordable = [math]::Min($affordable, 1) }
+#     hard faults/sec   0 (vs 528-23,965 under pressure)
+#     free RAM          steady at 4.2-4.3 GB, no downward drift
+#     compressed mem    flat, slightly falling
+#
+# So concurrency was never the problem -- memory pressure was, and the worker
+# count that induces it is a function of what else is running, not a constant.
+# The memory formula above is the real control; a fixed cap on top of it just
+# encoded one evening's conditions as if they were a property of the pipeline.
+#
+# What remains true: CPU is not the constraint (10 physical cores, 2 threads per
+# worker, ~1 core busy each), so the only reason to limit workers is memory.
 
 if ($Workers -gt 0) {
     if ($Workers -gt $affordable) {
