@@ -14,3 +14,7 @@ outputs/logs/G0.4_full_sweep.log
 outputs/logs/sweep_*.log
 outputs/logs/sweep_*.err
 outputs/logs/P1desc_*.log
+
+# wake-lock runtime logs (operational, not results)
+outputs/logs/keepawake.log
+outputs/logs/keepawake.err
