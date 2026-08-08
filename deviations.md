@@ -255,3 +255,51 @@ one, so the n≈29 result is not independent of what I have already seen. That i
 unavoidable — the alternative is discarding real data — but it means the n≈29
 run is a **larger** test, not a fresh one, and should be described that way. It
 is not a replication of the pilot.
+
+---
+
+## 2026-08-06 — G1.3 and G1.4 computed while the G1.2 hard stop is open
+
+**What changed.** `gates.md` §G1.2 is a hard stop whose failure playbook says
+*"Stop, log carefully, and re-plan with the mentor before proceeding"*, and the
+G1.2 attempt-3 log records "Do not proceed to G1.3." G1.3 and G1.4 were
+nevertheless computed, at the user's explicit direction, before the mentor has
+re-planned.
+
+**Boundary actually applied.** Not everything downstream was run:
+
+| | |
+|---|---|
+| G1.3 divergence metrics | **computed** |
+| G1.4 variance decomposition | **computed** |
+| G-LOCK preregistration | **not started** |
+| any P2 primary analysis | **not started** |
+
+**Why this line.** The playbook's operative warning is *"Do not quietly proceed
+as if the anomaly held."* G1.3 and G1.4 do not assume it held. They are
+measurements every branch needs:
+
+- Neither depends on the EEG preprocessing variant at all. D_subj is built from
+  RSME and D_beh from behavioural performance; the variance decomposition is
+  fitted to RSME. The G1.2 dispute is about band power, which enters neither.
+- `gates.md` §G1.4's own documented pivot keeps Study 1 intact under the
+  reproducibility framing ("a Study-1-plus-Study-3 paper"), so these quantities
+  are required under the branch that G1.2's failure makes most likely, not just
+  under the original one.
+
+G-LOCK is different in kind and was not touched: it fixes hypotheses,
+relabelling schemes and decision rules, and the framing it would freeze is
+exactly what the mentor has to decide. Preregistering before that decision is
+the failure the hard stop exists to prevent.
+
+**Risk this carries.** G1.4's result is now known before the mentor has chosen
+a framing, so it cannot inform that choice from a position of ignorance. This
+is a real cost and is recorded rather than argued away. It is mitigated only by
+the fact that G1.4's decision rule and its pivot were both written in
+`gates.md` in advance, so neither the rule nor the consequence was chosen after
+seeing the number.
+
+**Not done, and not to be done without the mentor:** no criterion, threshold,
+metric definition, exclusion or hypothesis has been added, tuned or dropped in
+response to any result seen so far. The `FLAT_D` and ROI questions raised by
+G1.3 and G1.2 are logged as open G-LOCK decisions, not silently resolved.
