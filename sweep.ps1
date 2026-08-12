@@ -42,14 +42,25 @@ $root = $PSScriptRoot
 $py = Join-Path $root ".venv\Scripts\python.exe"
 $derived = Join-Path $root "data\derived\P0"
 
+# The descriptive variant now writes to P1_published: on 2026-08-06 the epoch
+# length was corrected from 8.0 s to the published 0.5 s, and the old run is
+# kept intact so the effect of that correction stays measurable.
+$DescDirName = "P1_published"
+$LegacyDescDir = "P1_descriptive"
+
 function Show-Progress {
     $done = @(Get-ChildItem "$derived\*_cov.npz" -ErrorAction SilentlyContinue)
     Write-Host "P0 (ML variant, decoding)  : $($done.Count) / 87"
 
-    $descDir = Join-Path $root "data\derived\P1_descriptive"
+    $descDir = Join-Path $root "data\derived\$DescDirName"
     $desc = @(Get-ChildItem "$descDir\*_power.json" -ErrorAction SilentlyContinue)
     if (Test-Path $descDir) {
-        Write-Host "P1 descriptive (band power): $($desc.Count) / 87"
+        Write-Host "P1 published (0.5 s epochs): $($desc.Count) / 87"
+    }
+    $legacy = @(Get-ChildItem (Join-Path $root "data\derived\$LegacyDescDir\*_power.json") `
+                -ErrorAction SilentlyContinue)
+    if ($legacy.Count -gt 0) {
+        Write-Host "P1 legacy 8 s epochs       : $($legacy.Count) / 87  (superseded)"
     }
 
     $running = @(Get-Process python -ErrorAction SilentlyContinue |
@@ -72,7 +83,7 @@ function Get-Done {
     for ($s = $f; $s -le $l; $s++) {
         for ($ses = 1; $ses -le 3; $ses++) {
             $p = if ($desc) {
-                Join-Path $root ("data\derived\P1_descriptive\sub-{0:D2}_ses-S{1}_power.json" -f $s, $ses)
+                Join-Path $root ("data\derived\$DescDirName\sub-{0:D2}_ses-S{1}_power.json" -f $s, $ses)
             } else {
                 Join-Path $root ("data\derived\P0\sub-{0:D2}_ses-S{1}_cov.npz" -f $s, $ses)
             }
@@ -86,7 +97,7 @@ function Show-Watch {
     param([int]$f, [int]$l, [bool]$desc, [int]$every)
 
     $total = ($l - $f + 1) * 3
-    $label = if ($desc) { "P1 descriptive (band power)" } else { "P0 (ML variant)" }
+    $label = if ($desc) { "P1 published variant (0.5 s epochs)" } else { "P0 (ML variant)" }
     $startDone = Get-Done $f $l $desc
     $startTime = Get-Date
 
