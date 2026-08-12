@@ -98,10 +98,57 @@ does not") — arguably more direct than the route the PRD planned.
 
 Ranked by expected value ÷ cost.
 
-**6.1 Email the dataset authors** — cost: one email. Six independent signs say
-the reference documents describe an *earlier* COG-BCI revision than the Zenodo
-copy in hand (§7). If the published alpha analysis ran on different data, that
-explains the one divergent criterion outright. Draft is written and ready.
+**6.0 The Zenodo release history — new, and it reorders everything below.**
+
+The dataset has at least four Zenodo versions, and the current record carries
+this note verbatim:
+
+> *"Please note that version 4 corrected an **electrode name mismatch**, for
+> which we sincerely apologize. The answers to the RSME and KSS questionnaires
+> are provided in two separate .txt files."*
+
+| | | |
+|---|---|---|
+| Version 1 | `10.5281/zenodo.6874129` | 2022-07-21, 31.5 GB |
+| Version 4 | `10.5281/zenodo.7413650` | 2022-12-08, "corrected an electrode name mismatch" |
+| Concept DOI | `10.5281/zenodo.6874128` | resolves to **latest** — this is what we downloaded, so we have v4 |
+
+The dataset paper appeared in February 2023. **Which version the analyses were
+run on is not stated anywhere I can find**, and the concept DOI cited in the
+paper does not disambiguate it.
+
+This is very likely sign 1 of §7, now with a name. The dataset's own
+`COG-BCI_info.pdf` says *"electrode 10 (named ECG in the dataset) was dedicated
+to recording peripheral electrocardiographic activity"*, while our reference
+material describes that channel as **`TP9`** — which is also a perfectly valid
+EEG electrode name. If an earlier release labelled the cardiac channel `TP9`,
+then any pipeline treating it as EEG carried a cardiac signal into the montage
+and into the average reference, contaminating every channel.
+
+**That is a mechanism which would plausibly wash out a moderate N-Back alpha
+effect while leaving MATB's F = 57–119 effects standing.** It is a hypothesis,
+not a finding — "electrode name mismatch" could equally mean a whole-vector
+misalignment of labels to data, which would be worse, or a cosmetic rename,
+which would be harmless. I cannot tell from outside.
+
+**The decisive test does not require the authors.** Download one subject from
+version 1 (~1 GB) and compare, against the same subject in version 4: the
+channel name vector, and the data itself. Three outcomes, all informative:
+
+| If v1 vs v4 shows | Then |
+|---|---|
+| identical data, `TP9` renamed to `ECG1` | earlier analyses that dropped it by name were fine; the label was a trap only for third parties |
+| identical data, **many** names changed | the published ROIs were computed on the wrong electrodes — this explains the divergence outright |
+| data differs | a larger problem; escalate |
+
+Cost: ~1 GB download and an afternoon. **Highest value per hour of anything on
+this list, and it settles the question whether or not anyone replies.**
+
+**6.1 Email the dataset authors** — cost: one email, draft ready to send. The
+version history above turned this from a vague "is this the same revision?" into
+a factual question answerable in one line: *were the published analyses run
+before or after the version 4 correction, and did that correction change only
+labels, or the label-to-data mapping?*
 
 **6.2 Resting-state baseline / relative power** — the last untested
 methodological difference. Each session has four unused resting recordings
