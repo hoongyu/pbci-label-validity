@@ -52,35 +52,69 @@ from src.preprocess.pipeline import (
     _place_reference_channel,
 )
 
-#: Descriptive-variant epoching (`dataset.md` §7.5, "~16 epochs (8 s) rejected
-#: per task"). The ML variant uses 5 s.
-EPOCH_LENGTH_S = 8.0
+#: Descriptive-variant epoch length. **0.5 s, from the paper itself**:
+#: "The data were then epoched into 0.5-second segments and an automatic epoch
+#: rejection using a 2 standard deviation criterion was applied."
+#: (Hinss et al. 2023, Technical Validation.)
+#:
+#: This was 8.0 s until 2026-08-06, and that was my error. `dataset.md` §7.5
+#: lists published averages of *rejected* quantities -- "0.34 channels
+#: interpolated per task, ~7 ICA components rejected per participant-session,
+#: ~16 epochs (8 s) rejected per task" -- and I read the parenthetical as the
+#: epoch length rather than as the total duration those 16 epochs represent.
+#: 16 x 0.5 s = 8.0 s exactly, which settles the reading. The consequence was a
+#: descriptive variant with epochs 16x too long, and G1.2 Part B was decided on
+#: it. See `deviations.md`.
+EPOCH_LENGTH_S = 0.5
 
 #: Bands for the descriptive analyses. Alpha is 8-13 here, not the 8-12 used
 #: for anything compared against the decoding baseline (`pitfalls.md` #6).
 BANDS = {"theta": (4.0, 8.0), "alpha": (8.0, 13.0)}
 
-#: Epoch-rejection thresholds evaluated in parallel, in volts.
+#: Epoch-rejection modes evaluated in parallel.
 #:
-#: INTERPRETIVE, and irreducibly so. The references give the outcome (~16
-#: epochs rejected per task, `dataset.md` §7.5) but not the criterion, and no
-#: fixed peak-to-peak threshold satisfies both that count and equal treatment
-#: of conditions. Measured on sub-01/ses-S1, median PTP is 98 / 162 / 219 uV
-#: for MATB easy / medium / difficult -- the distribution shifts with
-#: difficulty, so amplitude-based rejection preferentially discards the
-#: high-workload condition. At 150 uV the mean rejection is 14.3/task (close to
-#: published) but the per-condition spread is 34 epochs; at 300 uV the spread
-#: falls to 3 but almost nothing is rejected.
+#: `sd2` is the PUBLISHED criterion, quoted above: a 2 standard deviation
+#: automatic epoch rejection. I previously recorded the criterion as
+#: "INTERPRETIVE, and irreducibly so", which was wrong -- it is stated in the
+#: paper's Technical Validation section, which I had not read, having worked
+#: from the project's reference summaries instead.
 #:
-#: Rather than choose the flattering number, power is computed under all of
-#: them so any conclusion can be checked against the choice. `none` is the
-#: primary: it cannot bias the difficulty axis, matching the ML variant's
-#: reasoning for disabling epoch rejection.
+#: The criterion is applied to ONE statistic per epoch, not per channel. With
+#: 62 channels, rejecting whenever any single channel exceeds 2 SD would
+#: discard almost everything; a single global statistic thresholded at +2 SD
+#: discards ~2.3% of a normal distribution, which on a ~6.6 min N-Back
+#: recording (~790 epochs at 0.5 s) is ~18 epochs -- against the published ~16
+#: per task. That arithmetic is the reason for reading it this way, and
+#: `n_kept` in the output records the achieved count so the reading stays
+#: checkable rather than assumed.
+#:
+#: The fixed peak-to-peak thresholds are kept alongside it as a sensitivity
+#: check, and `none` as the criterion that cannot bias the difficulty axis:
+#: measured on sub-01/ses-S1, median PTP is 98 / 162 / 219 uV for MATB easy /
+#: medium / difficult, so the amplitude distribution shifts with difficulty and
+#: any amplitude-based rejection preferentially discards the high-workload
+#: condition. That concern applies to `sd2` too, and is exactly why it is
+#: reported next to `none` rather than instead of it.
+SD_CRITERION = 2.0
+
 REJECT_THRESHOLDS: dict[str, float | None] = {
     "none": None,
+    "sd2": None,          # data-dependent; see `_keep_mask`
     "ptp150": 150e-6,
     "ptp300": 300e-6,
 }
+
+
+def _keep_mask(tag: str, ptp: np.ndarray, threshold_v: float | None) -> np.ndarray:
+    """Which epochs survive rejection mode `tag`."""
+    if tag == "none":
+        return np.ones(ptp.size, bool)
+    if tag == "sd2":
+        # Global statistic per epoch, one-sided: only unusually LARGE epochs are
+        # artefacts. A two-sided cut would also discard the quietest epochs,
+        # which is where alpha lives.
+        return ptp <= ptp.mean() + SD_CRITERION * ptp.std(ddof=1)
+    return ptp <= threshold_v
 
 #: ROIs over the full montage. The 10-channel subset exists for the decoding
 #: baseline; a descriptive band-power analysis has no reason to be restricted
@@ -97,6 +131,31 @@ def _roi_of(channel: str) -> str | None:
         return "posterior"
     return None
 
+
+#: The PUBLISHED electrode clusters, quoted verbatim from the paper's Technical
+#: Validation section:
+#:
+#:   "For the frontal area, a cluster of 10 electrodes was averaged: F3, F1,
+#:    Fz, F2, F4, FC3, FC1, FCz, FC2, FC4; for the central area, 10 electrodes
+#:    were averaged: C3, C1, Cz, C2, C4, CP3, CP1, CPz, CP2, CP4; and for the
+#:    parieto-occipital area, a cluster of 11 electrodes was averaged: P3, P1,
+#:    Pz, P2, P4, PO3, POz, PO4, O1, Oz, O2."
+#:
+#: `build_cells.ROIS` carries a note that ROI membership is INTERPRETIVE
+#: because "dataset.md does not name the ROI channels". The paper does. These
+#: lists replace guesswork for the purpose of REPRODUCING the published
+#: analysis; the project's own preregistered ROIs are still a G-LOCK decision
+#: and are not settled by this.
+#:
+#: Note "central" here includes Cz, which is absent for participants 1-9
+#: (`dataset.md` §7.7) -- so that cluster is one electrode short for those
+#: subjects, in the published analysis as well as in this reproduction.
+PUBLISHED_ROIS = {
+    "frontal": ("F3", "F1", "Fz", "F2", "F4", "FC3", "FC1", "FCz", "FC2", "FC4"),
+    "central": ("C3", "C1", "Cz", "C2", "C4", "CP3", "CP1", "CPz", "CP2", "CP4"),
+    "posterior": ("P3", "P1", "Pz", "P2", "P4", "PO3", "POz", "PO4",
+                  "O1", "Oz", "O2"),
+}
 
 SUBSET_ROIS = {
     "frontal": ("F3", "Fz", "F4", "FCz"),
@@ -255,14 +314,15 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
                                               fir_design="firwin", verbose=False)
             power = filtered.var(axis=2)                     # (n_epochs, n_ch)
             for tag, threshold_v in REJECT_THRESHOLDS.items():
-                keep = (np.ones(n_made, bool) if threshold_v is None
-                        else ptp <= threshold_v)
+                keep = _keep_mask(tag, ptp, threshold_v)
                 if keep.sum() < 3:
                     continue
                 entry.setdefault("n_kept", {})[tag] = int(keep.sum())
                 block = power[keep]
                 for roi in ("frontal", "central", "posterior"):
-                    for label, channels in (("", None), ("_subset", SUBSET_ROIS[roi])):
+                    for label, channels in (("", None),
+                                            ("_published", PUBLISHED_ROIS[roi]),
+                                            ("_subset", SUBSET_ROIS[roi])):
                         picks = [i for i, c in enumerate(names_all)
                                  if (_roi_of(c) == roi if channels is None
                                      else c in channels)]
@@ -282,10 +342,17 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
     return out
 
 
+#: Output directory. The corrected run writes somewhere new rather than over
+#: the 8 s results: those took ~20 h of compute, they are what G1.2 attempt 3
+#: was decided on, and keeping them makes the effect of the epoch-length
+#: correction measurable instead of merely asserted.
+VARIANT_DIR = "P1_published"
+
+
 def derived_dir(config: dict) -> Path:
     base = Path(config["paths"]["derived"])
     base = base if base.is_absolute() else REPO_ROOT / base
-    out = base / "P1_descriptive"
+    out = base / VARIANT_DIR
     out.mkdir(parents=True, exist_ok=True)
     return out
 

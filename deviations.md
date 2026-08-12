@@ -303,3 +303,74 @@ seeing the number.
 metric definition, exclusion or hypothesis has been added, tuned or dropped in
 response to any result seen so far. The `FLAT_D` and ROI questions raised by
 G1.3 and G1.2 are logged as open G-LOCK decisions, not silently resolved.
+
+---
+
+## 2026-08-06 — Descriptive-variant epoch length corrected, 8.0 s → 0.5 s (my error)
+
+**Written before the corrected run produced any result.** The 87-session sweep
+has not been started; a single probe session is in flight and its output has not
+been read. The sequence is checkable against the commit timestamps.
+
+**What was wrong.** `src/preprocess/descriptive.py` used `EPOCH_LENGTH_S = 8.0`.
+The paper states: *"The data were then epoched into **0.5-second segments** and
+an automatic epoch rejection using a **2 standard deviation criterion** was
+applied."* My epochs were 16× too long and my rejection criterion was a fixed
+peak-to-peak voltage, which is not what was done.
+
+**Where the error came from.** `dataset.md` §7.5 lists published averages of
+rejected quantities: *"0.34 channels interpolated per task, ~7 ICA components
+rejected per participant-session, ~16 epochs (8 s) rejected per task."* I read
+"(8 s)" as the epoch length. It is the total duration those 16 epochs represent:
+**16 × 0.5 s = 8.0 s exactly**. In a list whose other entries are all counts of
+discarded things, that reading should have been the obvious one.
+
+The deeper cause is that I built the descriptive variant from the project's
+reference summaries and never read the paper's Technical Validation section. Two
+things I recorded as unknowable were stated there plainly: the rejection
+criterion, which I described in code as *"INTERPRETIVE, and irreducibly so"*,
+and the ROI electrode lists, which `build_cells.ROIS` calls INTERPRETIVE because
+*"dataset.md does not name the ROI channels"*. The paper names all of them.
+
+**What changed.**
+
+| | before | after |
+|---|---|---|
+| epoch length | 8.0 s | **0.5 s** |
+| rejection | fixed PTP thresholds | **2 SD** added as `sd2`, PTP kept as sensitivity |
+| ROI | full montage, 10-ch subset | **published clusters** added as a third scope |
+| output | `data/derived/P1_descriptive` | `data/derived/P1_published` (old run kept intact) |
+
+**Why this is not the forbidden kind of change.** The pre-committed rule of
+2026-08-05 says no parameter will be *"introduced, tuned or dropped"* after
+seeing a result, and that if a result is disliked the response is to report it
+rather than re-specify the test. That rule governs choices the sources leave
+open. This is not one: every value above is quoted from the published methods,
+and each replaces a value that was wrong rather than merely different. The test
+is being made to match the thing it claims to reproduce.
+
+The distinction is only worth anything if it is not applied selectively, so:
+**this correction is adopted whichever way it moves the result.**
+
+**Prediction, recorded before looking.** I do not know what this does to the
+N-Back alpha effect. Arguments both ways: 0.5 s epochs at 2 Hz resolution
+measure the alpha band crudely and add variance, which would shrink an effect;
+but amplitude-based rejection at 2 SD preferentially discards high-amplitude
+epochs, and alpha dominates amplitude in the low-workload condition, which could
+compress the very contrast under test — that mechanism would *manufacture* a
+null. If the effect survives, the G1.2 fork stands. If it vanishes, G1.2
+attempt 3's verdict was decided on a pipeline that was not the published one and
+must be withdrawn.
+
+**Consequence for G1.2.** Attempt 3's Part B verdict is **provisional** as of
+this entry, and the mentor briefing must carry that caveat until the corrected
+run is in.
+
+**Also settled today, and it removes a hypothesis rather than adding one.**
+COG-BCI Zenodo v1 (`10.5281/zenodo.6874129`) was downloaded and compared against
+our v4 copy for sub-01: all 12 recordings have **identical channel names**, v1
+already names the cardiac channel `ECG1` at index 9, and every `.fdt` payload is
+**byte-identical** (MD5). The paper's phrase *"Electrode TP9 was sacrificed to
+record peripheral ECG"* refers to the cap position, which the data has always
+labelled `ECG1`. The data-revision explanation for the alpha divergence is
+therefore **refuted for this subject**, and sign 1 of the six is resolved.
