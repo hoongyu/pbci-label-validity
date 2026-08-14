@@ -58,8 +58,23 @@ Write-Host "poll every $PollSeconds s, up to $MaxRestarts restarts. Ctrl+C stops
 Write-Host "(a running worker is left alive; re-run this to resume supervising)."
 Write-Host ""
 
+# Heartbeat, because the log was previously written only on a restart: a
+# supervisor that is alive and one that died hours ago look identical when
+# nothing needs restarting. It also records free memory, which is what actually
+# governs whether the sweep is moving -- measured per-session times swing
+# between 10 min on an idle machine and 157 min under pressure.
+$lastBeat = (Get-Date).AddMinutes(-999)
+$BeatMinutes = 30
+
 while ($true) {
     $done = Get-Done
+    if (((Get-Date) - $lastBeat).TotalMinutes -ge $BeatMinutes) {
+        $free = (Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB
+        $alive = (Get-Worker).Count
+        Write-Host ("[{0:HH:mm}] alive: {1}/{2} done, {3} worker(s), {4:N2} GB free" -f `
+                    (Get-Date), $done, $total, $alive, $free)
+        $lastBeat = Get-Date
+    }
     if ($done -ge $total) {
         Write-Host ("[{0:HH:mm}] COMPLETE {1}/{2} after {3:N1} h, {4} restart(s)" -f `
                     (Get-Date), $done, $total, ((Get-Date) - $startedAt).TotalHours, $restarts)
