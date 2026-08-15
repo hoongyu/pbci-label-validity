@@ -48,7 +48,11 @@ from analyses.P1_divergence.manipulation_checks import (
 )
 from src.io.inventory import REPO_ROOT, load_config
 
-POWER_DIR = REPO_ROOT / "data" / "derived" / "P1_descriptive"
+#: The corrected run: 0.5 s epochs, the published 2 SD rejection, and the
+#: published electrode clusters. The 8 s run that G1.2 attempt 3 was decided on
+#: is kept at `P1_descriptive` and can still be pointed at with --dir.
+POWER_DIR = REPO_ROOT / "data" / "derived" / "P1_published"
+LEGACY_DIR = REPO_ROOT / "data" / "derived" / "P1_descriptive"
 
 #: condition -> (task, difficulty). Matches `cells.csv`, so the two variants'
 #: tables are directly comparable.
@@ -61,9 +65,24 @@ CONDITIONS = {
     "matb_difficult": ("matb", 2),
 }
 
-THRESHOLDS = ("none", "ptp150", "ptp300")
-ROI_SETS = {"full": "", "subset": "_subset"}
+THRESHOLDS = ("none", "sd2", "ptp150", "ptp300")
+ROI_SETS = {"full": "", "published": "_published", "subset": "_subset"}
 BANDS = ("theta", "alpha")
+
+#: The two primary combinations, both named in `deviations.md` (2026-08-15)
+#: BEFORE this module was pointed at the corrected run. They answer different
+#: questions and neither outranks the other:
+#:
+#:   reproduction  -- does the published null replicate under THEIR parameters?
+#:   pre-committed -- what does the data say under a rejection criterion that
+#:                    cannot bias the difficulty axis?
+#:
+#: If they disagree, that disagreement is the finding, not something to resolve
+#: by choosing one.
+PRIMARIES = {
+    "reproduction": ("published", "sd2"),
+    "pre-committed": ("full", "none"),
+}
 
 #: G1.2 attempt 1, ML variant, n=29 (`outputs/logs/G1.2_2026-08-02_attempt1.md`).
 #: Kept here so the two variants can be compared on effect size rather than on
@@ -323,6 +342,28 @@ def main(argv: list[str] | None = None) -> int:
     comparison.to_csv(REPO_ROOT / "outputs" / "tables" /
                       "G1.2_partB_effectsize_vs_ML.csv", index=False)
 
+    # --- the two primaries, side by side
+    print("\n=== the two PRIMARY combinations (named before this was run) ===")
+    for label, (roi_set, tag) in PRIMARIES.items():
+        block = frame[(frame.roi_set == roi_set) & (frame.reject == tag)]
+        if block.empty:
+            print(f"\n  {label}: ROI={roi_set} reject={tag} -- not computed")
+            continue
+        passed = bool(block.ok.all())
+        print(f"\n  {label:<14} ROI={roi_set:<10} reject={tag:<7} -> "
+              f"{'ANOMALY REPRODUCED' if passed else 'NOT REPRODUCED'}")
+        for _, r in block.iterrows():
+            print(f"    [{'OK  ' if r.ok else 'FAIL'}] {r['check']:<52} {r.detail}")
+
+    verdicts = {label: bool(frame[(frame.roi_set == rs) & (frame.reject == tg)].ok.all())
+                for label, (rs, tg) in PRIMARIES.items()
+                if not frame[(frame.roi_set == rs) & (frame.reject == tg)].empty}
+    if len(set(verdicts.values())) > 1:
+        print("\n  THE TWO PRIMARIES DISAGREE. Per deviations.md (2026-08-15) that")
+        print("  disagreement is the finding: whether the published null holds")
+        print("  depends on the epoch-rejection criterion, and `sd2` is")
+        print("  amplitude-based while alpha dominates amplitude at low workload.")
+
     unstable = [c for c in pivot.index if pivot.loc[c].nunique() > 1]
     if unstable:
         print("\nPARAMETER-DEPENDENT (conclusion is not a property of the data):")
@@ -338,11 +379,13 @@ def main(argv: list[str] | None = None) -> int:
         out_dir / "G1.2_partB_descriptive_anova.csv", index=False)
     print(f"\nwrote {out_dir / 'G1.2_partB_descriptive_checks.csv'}")
 
+    combos = [(rs, t) for rs in ROI_SETS for t in THRESHOLDS
+              if not frame[(frame.roi_set == rs) & (frame.reject == t)].empty]
     n_pass = sum(bool(frame[(frame.roi_set == rs) & (frame.reject == t)].ok.all())
-                 for rs in ROI_SETS for t in THRESHOLDS)
-    print(f"\nPart B (descriptive variant): {n_pass}/6 combinations reproduce "
-          "the anomaly")
-    return 0 if n_pass == 6 else 1
+                 for rs, t in combos)
+    print(f"\nPart B (descriptive variant): {n_pass}/{len(combos)} combinations "
+          "reproduce the anomaly")
+    return 0 if n_pass == len(combos) else 1
 
 
 if __name__ == "__main__":

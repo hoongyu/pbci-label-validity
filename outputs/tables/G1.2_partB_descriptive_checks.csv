@@ -1,43 +1,85 @@
 check,ok,detail,roi_set,reject
-N-Back: NO difficulty effect on theta,True,"smallest p=0.206 (posterior, F=1.63)",full,none
-N-Back: NO difficulty effect on alpha,False,"smallest p=3.45e-06 (posterior, F=15.88)",full,none
-N-Back: NO session effect on alpha,False,smallest p=0.0393 (frontal),full,none
-MATB: difficulty effect on frontal theta,True,"F=57.28, p=2.87e-14",full,none
-MATB: difficulty effect on posterior theta,True,"F=119.16, p=6.65e-21",full,none
-MATB: posterior alpha difficulty effect present,True,"F=22.39, p=7.16e-08",full,none
-MATB: posterior alpha INCREASES with difficulty,True,-25.938 -> -25.783 -> -25.670,full,none
-N-Back: NO difficulty effect on theta,True,"smallest p=0.189 (posterior, F=1.79)",full,ptp150
-N-Back: NO difficulty effect on alpha,False,"smallest p=0.00411 (central, F=6.97)",full,ptp150
-N-Back: NO session effect on alpha,True,smallest p=0.255 (frontal),full,ptp150
-MATB: difficulty effect on frontal theta,True,"F=15.27, p=0.000303",full,ptp150
-MATB: difficulty effect on posterior theta,True,"F=46.58, p=6.49e-07",full,ptp150
-MATB: posterior alpha difficulty effect present,True,"F=6.00, p=0.0131",full,ptp150
-MATB: posterior alpha INCREASES with difficulty,True,-25.945 -> -25.788 -> -25.804,full,ptp150
-N-Back: NO difficulty effect on theta,True,"smallest p=0.278 (frontal, F=1.32)",full,ptp300
-N-Back: NO difficulty effect on alpha,False,"smallest p=0.000322 (posterior, F=9.80)",full,ptp300
-N-Back: NO session effect on alpha,True,smallest p=0.1 (frontal),full,ptp300
-MATB: difficulty effect on frontal theta,True,"F=65.83, p=1.75e-14",full,ptp300
-MATB: difficulty effect on posterior theta,True,"F=111.73, p=8.73e-19",full,ptp300
-MATB: posterior alpha difficulty effect present,True,"F=17.41, p=2.07e-06",full,ptp300
-MATB: posterior alpha INCREASES with difficulty,True,-25.934 -> -25.790 -> -25.666,full,ptp300
-N-Back: NO difficulty effect on theta,False,"smallest p=0.00413 (central, F=6.06)",subset,none
-N-Back: NO difficulty effect on alpha,False,"smallest p=1.99e-09 (posterior, F=29.27)",subset,none
-N-Back: NO session effect on alpha,True,smallest p=0.0826 (frontal),subset,none
-MATB: difficulty effect on frontal theta,True,"F=92.62, p=1.74e-18",subset,none
-MATB: difficulty effect on posterior theta,True,"F=101.07, p=2.61e-19",subset,none
-MATB: posterior alpha difficulty effect present,True,"F=7.60, p=0.0012",subset,none
-MATB: posterior alpha INCREASES with difficulty,True,-26.147 -> -26.058 -> -26.019,subset,none
-N-Back: NO difficulty effect on theta,True,"smallest p=0.0781 (posterior, F=2.84)",subset,ptp150
-N-Back: NO difficulty effect on alpha,False,"smallest p=0.00206 (central, F=8.09)",subset,ptp150
-N-Back: NO session effect on alpha,True,smallest p=0.385 (frontal),subset,ptp150
-MATB: difficulty effect on frontal theta,True,"F=23.80, p=3.13e-05",subset,ptp150
-MATB: difficulty effect on posterior theta,True,"F=33.49, p=4.62e-06",subset,ptp150
-MATB: posterior alpha difficulty effect present,False,"F=2.29, p=0.138",subset,ptp150
-MATB: posterior alpha INCREASES with difficulty,True,-26.134 -> -26.017 -> -26.085,subset,ptp150
-N-Back: NO difficulty effect on theta,True,"smallest p=0.0964 (frontal, F=2.47)",subset,ptp300
-N-Back: NO difficulty effect on alpha,False,"smallest p=2.14e-06 (posterior, F=18.10)",subset,ptp300
-N-Back: NO session effect on alpha,True,smallest p=0.154 (frontal),subset,ptp300
-MATB: difficulty effect on frontal theta,True,"F=85.45, p=1.53e-16",subset,ptp300
-MATB: difficulty effect on posterior theta,True,"F=101.18, p=6.08e-18",subset,ptp300
-MATB: posterior alpha difficulty effect present,True,"F=6.15, p=0.00419",subset,ptp300
-MATB: posterior alpha INCREASES with difficulty,True,-26.145 -> -26.060 -> -26.005,subset,ptp300
+N-Back: NO difficulty effect on theta,True,"smallest p=0.131 (frontal, F=2.11)",full,none
+N-Back: NO difficulty effect on alpha,False,"smallest p=1e-05 (posterior, F=14.24)",full,none
+N-Back: NO session effect on alpha,True,smallest p=0.0722 (frontal),full,none
+MATB: difficulty effect on frontal theta,True,"F=85.93, p=8.59e-18",full,none
+MATB: difficulty effect on posterior theta,True,"F=141.63, p=1.24e-22",full,none
+MATB: posterior alpha difficulty effect present,True,"F=24.86, p=1.87e-08",full,none
+MATB: posterior alpha INCREASES with difficulty,True,-26.022 -> -25.864 -> -25.755,full,none
+N-Back: NO difficulty effect on theta,True,"smallest p=0.121 (frontal, F=2.19)",full,sd2
+N-Back: NO difficulty effect on alpha,False,"smallest p=6.07e-06 (posterior, F=15.00)",full,sd2
+N-Back: NO session effect on alpha,True,smallest p=0.0697 (frontal),full,sd2
+MATB: difficulty effect on frontal theta,True,"F=84.58, p=1.2e-17",full,sd2
+MATB: difficulty effect on posterior theta,True,"F=142.62, p=1.06e-22",full,sd2
+MATB: posterior alpha difficulty effect present,True,"F=23.73, p=3.43e-08",full,sd2
+MATB: posterior alpha INCREASES with difficulty,True,-26.032 -> -25.877 -> -25.773,full,sd2
+N-Back: NO difficulty effect on theta,True,"smallest p=0.22 (frontal, F=1.59)",full,ptp150
+N-Back: NO difficulty effect on alpha,False,"smallest p=0.00249 (central, F=7.37)",full,ptp150
+N-Back: NO session effect on alpha,True,smallest p=0.131 (frontal),full,ptp150
+MATB: difficulty effect on frontal theta,True,"F=41.42, p=1.32e-09",full,ptp150
+MATB: difficulty effect on posterior theta,True,"F=84.61, p=1.67e-13",full,ptp150
+MATB: posterior alpha difficulty effect present,True,"F=10.50, p=0.000313",full,ptp150
+MATB: posterior alpha INCREASES with difficulty,True,-26.004 -> -25.868 -> -25.779,full,ptp150
+N-Back: NO difficulty effect on theta,True,"smallest p=0.0619 (frontal, F=2.94)",full,ptp300
+N-Back: NO difficulty effect on alpha,False,"smallest p=0.00065 (posterior, F=8.53)",full,ptp300
+N-Back: NO session effect on alpha,True,smallest p=0.136 (frontal),full,ptp300
+MATB: difficulty effect on frontal theta,True,"F=93.36, p=6.18e-18",full,ptp300
+MATB: difficulty effect on posterior theta,True,"F=137.23, p=1.8e-21",full,ptp300
+MATB: posterior alpha difficulty effect present,True,"F=22.67, p=8.34e-08",full,ptp300
+MATB: posterior alpha INCREASES with difficulty,True,-26.015 -> -25.855 -> -25.755,full,ptp300
+N-Back: NO difficulty effect on theta,False,"smallest p=0.032 (central, F=3.66)",published,none
+N-Back: NO difficulty effect on alpha,False,"smallest p=1.08e-08 (central, F=25.91)",published,none
+N-Back: NO session effect on alpha,True,smallest p=0.0818 (central),published,none
+MATB: difficulty effect on frontal theta,True,"F=88.23, p=4.92e-18",published,none
+MATB: difficulty effect on posterior theta,True,"F=166.08, p=2.87e-24",published,none
+MATB: posterior alpha difficulty effect present,True,"F=35.80, p=9.65e-11",published,none
+MATB: posterior alpha INCREASES with difficulty,True,-25.918 -> -25.726 -> -25.589,published,none
+N-Back: NO difficulty effect on theta,False,"smallest p=0.031 (frontal, F=3.70)",published,sd2
+N-Back: NO difficulty effect on alpha,False,"smallest p=1.14e-08 (central, F=25.81)",published,sd2
+N-Back: NO session effect on alpha,True,smallest p=0.0822 (central),published,sd2
+MATB: difficulty effect on frontal theta,True,"F=86.12, p=8.2e-18",published,sd2
+MATB: difficulty effect on posterior theta,True,"F=165.84, p=2.97e-24",published,sd2
+MATB: posterior alpha difficulty effect present,True,"F=34.07, p=2.09e-10",published,sd2
+MATB: posterior alpha INCREASES with difficulty,True,-25.928 -> -25.740 -> -25.608,published,sd2
+N-Back: NO difficulty effect on theta,True,"smallest p=0.169 (central, F=1.89)",published,ptp150
+N-Back: NO difficulty effect on alpha,False,"smallest p=0.000734 (central, F=9.27)",published,ptp150
+N-Back: NO session effect on alpha,True,smallest p=0.188 (posterior),published,ptp150
+MATB: difficulty effect on frontal theta,True,"F=38.81, p=2.78e-09",published,ptp150
+MATB: difficulty effect on posterior theta,True,"F=92.32, p=5.14e-14",published,ptp150
+MATB: posterior alpha difficulty effect present,True,"F=14.39, p=3.48e-05",published,ptp150
+MATB: posterior alpha INCREASES with difficulty,True,-25.896 -> -25.726 -> -25.621,published,ptp150
+N-Back: NO difficulty effect on theta,False,"smallest p=0.00987 (frontal, F=5.07)",published,ptp300
+N-Back: NO difficulty effect on alpha,False,"smallest p=3.23e-06 (central, F=16.45)",published,ptp300
+N-Back: NO session effect on alpha,True,smallest p=0.157 (frontal),published,ptp300
+MATB: difficulty effect on frontal theta,True,"F=76.82, p=2.99e-16",published,ptp300
+MATB: difficulty effect on posterior theta,True,"F=159.02, p=6.95e-23",published,ptp300
+MATB: posterior alpha difficulty effect present,True,"F=31.28, p=1.21e-09",published,ptp300
+MATB: posterior alpha INCREASES with difficulty,True,-25.910 -> -25.717 -> -25.590,published,ptp300
+N-Back: NO difficulty effect on theta,False,"smallest p=0.0173 (central, F=4.36)",subset,none
+N-Back: NO difficulty effect on alpha,False,"smallest p=6.3e-09 (posterior, F=26.96)",subset,none
+N-Back: NO session effect on alpha,True,smallest p=0.097 (frontal),subset,none
+MATB: difficulty effect on frontal theta,True,"F=108.70, p=5.23e-20",subset,none
+MATB: difficulty effect on posterior theta,True,"F=122.78, p=3.37e-21",subset,none
+MATB: posterior alpha difficulty effect present,True,"F=10.05, p=0.000186",subset,none
+MATB: posterior alpha INCREASES with difficulty,True,-26.268 -> -26.167 -> -26.128,subset,none
+N-Back: NO difficulty effect on theta,False,"smallest p=0.0156 (central, F=4.48)",subset,sd2
+N-Back: NO difficulty effect on alpha,False,"smallest p=6.14e-09 (posterior, F=27.01)",subset,sd2
+N-Back: NO session effect on alpha,True,smallest p=0.0939 (frontal),subset,sd2
+MATB: difficulty effect on frontal theta,True,"F=108.68, p=5.26e-20",subset,sd2
+MATB: difficulty effect on posterior theta,True,"F=123.47, p=2.96e-21",subset,sd2
+MATB: posterior alpha difficulty effect present,True,"F=9.57, p=0.000266",subset,sd2
+MATB: posterior alpha INCREASES with difficulty,True,-26.275 -> -26.175 -> -26.139,subset,sd2
+N-Back: NO difficulty effect on theta,True,"smallest p=0.141 (central, F=2.09)",subset,ptp150
+N-Back: NO difficulty effect on alpha,False,"smallest p=0.000521 (posterior, F=9.83)",subset,ptp150
+N-Back: NO session effect on alpha,True,smallest p=0.233 (frontal),subset,ptp150
+MATB: difficulty effect on frontal theta,True,"F=57.24, p=2.69e-11",subset,ptp150
+MATB: difficulty effect on posterior theta,True,"F=90.93, p=6.32e-14",subset,ptp150
+MATB: posterior alpha difficulty effect present,True,"F=4.83, p=0.0147",subset,ptp150
+MATB: posterior alpha INCREASES with difficulty,True,-26.249 -> -26.160 -> -26.122,subset,ptp150
+N-Back: NO difficulty effect on theta,False,"smallest p=0.0061 (frontal, F=5.66)",subset,ptp300
+N-Back: NO difficulty effect on alpha,False,"smallest p=2.39e-06 (posterior, F=16.96)",subset,ptp300
+N-Back: NO session effect on alpha,True,smallest p=0.17 (frontal),subset,ptp300
+MATB: difficulty effect on frontal theta,True,"F=104.54, p=6.02e-19",subset,ptp300
+MATB: difficulty effect on posterior theta,True,"F=125.06, p=1.35e-20",subset,ptp300
+MATB: posterior alpha difficulty effect present,True,"F=10.59, p=0.000139",subset,ptp300
+MATB: posterior alpha INCREASES with difficulty,True,-26.264 -> -26.156 -> -26.123,subset,ptp300
