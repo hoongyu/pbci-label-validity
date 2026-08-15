@@ -374,3 +374,54 @@ already names the cardiac channel `ECG1` at index 9, and every `.fdt` payload is
 record peripheral ECG"* refers to the cap position, which the data has always
 labelled `ECG1`. The data-revision explanation for the alpha divergence is
 therefore **refuted for this subject**, and sign 1 of the six is resolved.
+
+---
+
+## 2026-08-15 — Two primary combinations for the G1.2 re-test, named before it is run
+
+**Written with the corrected 87/87 sweep complete and before
+`descriptive_partb` has been pointed at it.** No result from `P1_published` has
+been read. Checkable against commit timestamps.
+
+**The problem.** The rule pre-committed on 2026-08-05 fixed the primary
+combination as `ROI=full, reject=none`, and gave its reason: both parameters
+were undetermined by the sources, and `reject=none` at least cannot bias the
+difficulty axis. **That reason has expired.** The paper states both: the exact
+electrode clusters for each ROI, and a 2 SD epoch-rejection criterion.
+
+Silently keeping `full/none` would test something the authors did not do.
+Silently switching to the published parameters would replace a pre-committed
+primary after the data changed. Neither is acceptable, and choosing between
+them after seeing the numbers would be the exact failure the original rule
+exists to prevent.
+
+**The resolution: two primaries, reported side by side, both named now.**
+
+| | combination | the question it answers |
+|---|---|---|
+| **Reproduction primary** | `ROI=published, reject=sd2` | Does the published null reproduce when the pipeline matches theirs? |
+| **Pre-committed primary** | `ROI=full, reject=none` | What does the data say under the choice that cannot bias the difficulty axis? |
+
+Both are reported in the gate log whatever they show, and **neither is
+promoted to "the" answer over the other**. The remaining combinations stay a
+stability check that cannot change either verdict.
+
+**Why both are needed rather than one.** They are not competing answers to one
+question; they are answers to two different questions, and the project needs
+both. The reproduction primary is what decides whether the published result
+replicates — a reproducibility claim has to use the original's parameters. The
+pre-committed primary is what decides what is true of the data, and it remains
+the better instrument for that: `sd2` is amplitude-based, alpha dominates
+amplitude in the low-workload condition, so 2 SD rejection can compress the very
+contrast under test. That is a real mechanism, it is why `none` was chosen
+originally, and it does not stop being true because the authors used something
+else.
+
+**If the two disagree, that is the finding**, not a problem to resolve by
+picking one. A published null that reproduces only under the authors'
+rejection criterion, and not under a criterion that cannot bias the axis, is a
+statement about the criterion.
+
+**Unchanged:** no criterion, threshold, band, ROI definition, subject exclusion
+or channel set will be introduced, tuned or dropped after the result is seen.
+The seven Part B criteria are exactly as in `gates.md` §G1.2.
