@@ -257,9 +257,25 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
                  "n_iter": n_iter, "channels_interpolated": len(bads),
                  "interpolated": bads, "conditions": {}}
 
+    # Band power is computed by filtering the CONTINUOUS signal and epoching
+    # afterwards, not by filtering each epoch.
+    #
+    # At the published 0.5 s epoch length this is not a stylistic choice. An
+    # FIR bandpass for theta (4-8 Hz) needs a 413-sample kernel at 250 Hz; an
+    # epoch is 126 samples. MNE says so plainly -- "filter_length (413) is
+    # longer than the signal (126), distortion is likely" -- and the first
+    # corrected probe run emitted that warning on every call, so its power
+    # values are not usable. Filtering the continuous recording first removes
+    # the problem entirely and also matches what the descriptive variant does:
+    # clean the continuous signal, then epoch (`dataset.md` §7.6).
+    #
+    # The loop is band-outermost so only one filtered copy of the continuous
+    # data (~260 MB) exists at a time.
+    picks_all = [c for c in combined.ch_names if _roi_of(c)]
+
+    per_condition = []
     offset = 0.0
     for condition, duration in boundaries:
-        picks_all = [c for c in combined.ch_names if _roi_of(c)]
         starts = []
         t = offset
         while t + EPOCH_LENGTH_S <= offset + duration:
@@ -296,29 +312,31 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
                 for th in (75e-6, 100e-6, 150e-6, 200e-6, 300e-6, 500e-6, 1e-3)
             },
         }
-        picked = epochs.copy().pick(picks_all)
-        data_all = np.ascontiguousarray(picked.get_data(copy=True))
-        names_all = picked.ch_names
-        sfreq = float(epochs.info["sfreq"])
+        per_condition.append({"condition": condition, "events": events,
+                              "n_made": n_made, "ptp": ptp, "entry": entry})
+        del epochs, raw_data
 
-        # Band-filter once, then evaluate every rejection threshold on the
-        # result. No fixed peak-to-peak threshold can both match the published
-        # ~16 epochs/task and avoid difficulty-graded loss in MATB: the PTP
-        # distribution itself shifts with difficulty (median 98 / 162 / 219 uV
-        # for easy / medium / difficult) because harder MATB activates more
-        # subtasks and so produces more EMG. That is a property of the
-        # paradigm, not noise. Computing power under each threshold turns an
-        # unresolvable parameter choice into a sensitivity analysis.
-        for band, (lo, hi) in BANDS.items():
-            filtered = mne.filter.filter_data(data_all.copy(), sfreq, lo, hi,
-                                              fir_design="firwin", verbose=False)
-            power = filtered.var(axis=2)                     # (n_epochs, n_ch)
+    # Rejection is decided on the BROADBAND peak-to-peak above, once, so every
+    # band sees the same surviving epochs. Deciding it per band would let the
+    # two bands be computed on different subsets of the data.
+    for band, (lo, hi) in BANDS.items():
+        band_raw = combined.copy().filter(lo, hi, fir_design="firwin",
+                                          verbose="ERROR")
+        for item in per_condition:
+            band_epochs = mne.Epochs(band_raw, item["events"], tmin=0.0,
+                                     tmax=EPOCH_LENGTH_S, baseline=None,
+                                     preload=True, reject=None,
+                                     reject_by_annotation=False).pick(picks_all)
+            data = band_epochs.get_data(copy=False)
+            names_all = band_epochs.ch_names
+            power = data.var(axis=2)                     # (n_epochs, n_ch)
+            entry, ptp = item["entry"], item["ptp"]
             for tag, threshold_v in REJECT_THRESHOLDS.items():
                 keep = _keep_mask(tag, ptp, threshold_v)
                 if keep.sum() < 3:
                     continue
                 entry.setdefault("n_kept", {})[tag] = int(keep.sum())
-                block = power[keep]
+                block = power[keep[:len(power)]]
                 for roi in ("frontal", "central", "posterior"):
                     for label, channels in (("", None),
                                             ("_published", PUBLISHED_ROIS[roi]),
@@ -333,9 +351,14 @@ def preprocess_session_descriptive(raw_root: Path, config: dict, *, subject: int
                         if v.size:
                             entry[f"logpower_{band}_{roi}{label}__{tag}"] = \
                                 float(np.log(v).mean())
-        out["conditions"][condition.value] = entry
+            del band_epochs, data, power
+        del band_raw
+
+    for item in per_condition:
+        entry = item["entry"]
+        out["conditions"][item["condition"].value] = entry
         kept = entry.get("n_kept", {})
-        say(f"  {condition.value:<15} {n_made} epochs, kept "
+        say(f"  {item['condition'].value:<15} {item['n_made']} epochs, kept "
             + ", ".join(f"{tag}={kept[tag]}" for tag in REJECT_THRESHOLDS
                         if tag in kept))
 
