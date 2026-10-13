@@ -5,7 +5,7 @@
 | | | |
 |---|---|---|
 | **To** | Prof. Raphaëlle N. Roy | `raphaelle.roy@isae.fr` — **verified** on the ISAE-SUPAERO personnel page |
-| **Cc** | Prof. Frédéric Dehais | `frederic.dehais@isae.fr` — **not verified**; follows the same institutional pattern as the verified address, but his staff page shows no email. Confirm or drop it. |
+| **Cc** | Prof. Frédéric Dehais | address not recorded here. His staff page lists none, so look it up rather than inferring it from the pattern of a colleague's. |
 | ~~To~~ | Marcel F. Hinss | corresponding author on the paper, but he was a visiting Master's student from Maastricht at the time and almost certainly no longer holds an ISAE address. Do not make him the primary recipient. |
 
 Roy is the right primary recipient: senior author on both the dataset paper and
