@@ -267,6 +267,10 @@ analysis specification.
 
 ## License
 
-**Not yet determined.** This repository carries no licence file, so default
-copyright applies and no permissions are granted. The COG-BCI dataset is
-separately licensed CC-BY 4.0 by its authors and is not redistributed here.
+Code in this repository is licensed under the **Apache License 2.0**; see
+[LICENSE](LICENSE).
+
+The COG-BCI dataset is **not** included or redistributed here. It carries its
+own licence, CC-BY 4.0, granted by its authors, and `make download` fetches it
+from Zenodo under those terms. Attribution for the dataset belongs to Hinss et
+al. (2023); see [Citing the dataset](#citing-the-dataset).
