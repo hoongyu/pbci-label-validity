@@ -15,9 +15,7 @@ outputs/logs/sweep_*.log
 outputs/logs/sweep_*.err
 outputs/logs/P1desc_*.log
 
-# wake-lock runtime logs (operational, not results)
-outputs/logs/keepawake.log
-outputs/logs/keepawake.err
+# operational runtime logs, not results
 outputs/logs/supervisor.log
 outputs/logs/supervisor.err
 outputs/logs/pub_probe.log

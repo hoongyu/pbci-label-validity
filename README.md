@@ -8,11 +8,16 @@ decoding, built on the public COG-BCI dataset. The question is whether nominal
 decoders, or whether decoders trained on it are learning something else that
 merely correlates with the label.
 
-> **Status: halted, archived as a record.** Work stopped at gate G1.2, which the
-> project's own rules define as a hard stop requiring a change of plan rather
-> than a workaround. The analyses below ran to completion and their verdicts are
-> logged; nothing downstream of G1.2 was started. See
-> [Gate status](#gate-status).
+> **Archived. This is a finished research record and is no longer maintained.**
+>
+> Work stopped at gate G1.2, which the project's own rules define as a hard stop
+> requiring a change of plan rather than a workaround. The analyses below ran to
+> completion and their verdicts are logged, including the attempts that failed;
+> nothing downstream of G1.2 was started. See [Gate status](#gate-status).
+>
+> The repository is read-only on GitHub. Nothing here is being worked on, and
+> the open questions recorded in the gate logs are left open rather than
+> resolved.
 
 ## Why the question
 
