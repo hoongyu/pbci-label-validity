@@ -1,6 +1,8 @@
-.PHONY: all download download-check verify-raw extract inventory preprocess baseline cells manipulation divergence variance clean
+.PHONY: all download download-check verify-raw extract inventory preprocess
+.PHONY: preprocess-descriptive baseline cells manipulation anomaly confound
+.PHONY: divergence variance test clean
 
-all: baseline cells manipulation divergence variance
+all: baseline cells manipulation anomaly divergence variance
 
 # Raw data acquisition. Deliberately NOT a prerequisite of `all`: data/raw is
 # read-only source, not a regenerable artifact (dataset.md 1).
@@ -28,14 +30,23 @@ baseline: preprocess          # G0.4
 cells: preprocess             # G1.1
 	python -m analyses.P1_divergence.build_cells
 
-manipulation: cells           # G1.2
+manipulation: cells           # G1.2 Part A
 	python -m analyses.P1_divergence.manipulation_checks
 
+preprocess-descriptive:       # second preprocessing variant, 0.5 s epochs
+	python -m src.preprocess.descriptive
+
+anomaly: preprocess-descriptive   # G1.2 Part B, the verdict in attempt 4
+	python -m analyses.P1_divergence.descriptive_partb
+
+confound: preprocess-descriptive  # presentation-order control for G1.2
+	python -m analyses.P1_divergence.order_confound
+
 divergence: cells             # G1.3
-	python -m analyses.P1_divergence.metrics
+	python -m analyses.P1_divergence.divergence
 
 variance: cells               # G1.4
-	python -m analyses.P1_divergence.variance_components
+	python -m analyses.P1_divergence.variance
 
 test:
 	pytest -q
